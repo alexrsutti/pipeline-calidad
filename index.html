@@ -329,6 +329,17 @@ document.getElementById("file").addEventListener("change",e=>{const f=e.target.f
   catch(err){document.getElementById("app").innerHTML='<div class="empty">No pude leer el archivo. Verifica hojas <b>Localidades, Eventos, Elementos, Parametros</b>.<br><span class="note">'+err+'</span></div>';}};
   r.readAsArrayBuffer(f);});
 document.getElementById("demo").addEventListener("click",()=>{DATA=demoData();PARAMS=DATA.params;collapsed={};render();});
+// Carga automática del Excel publicado en el repo (datos.xlsx). Si no existe, queda el estado inicial.
+async function autoLoad(){
+  try{
+    const res=await fetch("datos.xlsx?t="+Date.now(),{cache:"no-store"});
+    if(!res.ok) return;
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    DATA=parseWB(wb); PARAMS=DATA.params; collapsed={}; render();
+  }catch(e){ /* sin datos publicados: se usa 'Cargar Excel' o 'Ver ejemplo' */ }
+}
+autoLoad();
 </script>
 </body>
 </html>
