@@ -82,7 +82,8 @@
   <div style="display:flex;gap:8px;align-items:center">
     <div class="tabs"><button class="tab on" id="tGantt">Gantt</button><button class="tab" id="tKanban">Kanban</button><button class="tab" id="tPend">Pendientes</button></div>
     <label class="btn primary">Cargar Excel<input id="file" type="file" accept=".xlsx,.xls" style="display:none"></label>
-    <button class="ghost" id="demo">Ver ejemplo</button>
+    <!-- Botón "Ver ejemplo" OCULTO a pedido (operación real usa datos.xlsx). Para reactivarlo, quitar style="display:none". -->
+    <button class="ghost" id="demo" style="display:none">Ver ejemplo</button>
   </div>
 </header>
 <div id="wrap">
