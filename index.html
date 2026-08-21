@@ -61,6 +61,11 @@
   .kcard{background:#fff;border:1px solid #e5e7eb;border-left:4px solid #999;border-radius:8px;padding:7px 8px;margin-bottom:7px;box-shadow:0 1px 1px rgba(0,0,0,.03)}
   .kcard b{font-size:12px}.kcard .m{font-size:10px;color:#777;margin-top:2px}
   .hide{display:none}
+  .zmix{background:repeating-conic-gradient(#C0392B 0% 25%, #7C3AED 0% 50%) 50%/9px 9px;}
+  .satbar{margin:0 0 12px;background:#0f172a;color:#fff;border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .satbar b{font-size:14px}
+  .satbar button{background:#f59e0b;color:#111;border:0;border-radius:6px;padding:7px 12px;font-weight:700;cursor:pointer}
+  #wallhead{display:none}
   /* pendientes */
   .phz{display:flex;gap:8px;align-items:center;margin:6px 0 12px;flex-wrap:wrap}
   .phz select{font:inherit;font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px}
@@ -71,7 +76,27 @@
   .bdg{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
   .b-ret{background:#fee2e2;color:#b91c1c}.b-ok{background:#dcfce7;color:#166534}.b-soon{background:#fef3c7;color:#92400e}.b-go{background:#dbeafe;color:#1e40af}
   .pempty{padding:10px 12px;color:#aaa;font-size:12px;border-top:1px solid #f1f1f1}
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background:#fff; }
+    header > div:last-child { display:none !important; }  /* pestañas y botones */
+    .params, #print, .satbar { display:none !important; } /* panel de edición, botón y banner */
+    .phz select, .phz input { display:none !important; }   /* controles de horizonte/antiguos */
+    .tl { overflow: visible !important; }                  /* imprimir todo el ancho */
+    .board, .parea, .kcol { break-inside: avoid; }
+    #wrap { padding:0 }
+    #wallhead { display:block !important; border-bottom:3px solid #111; margin-bottom:10px; padding-bottom:6px; }
+    #wallhead .wt { font-size:26px; font-weight:800; }
+    #wallhead .ws { font-size:16px; color:#333; }
+    .pah { font-size:18px !important; padding:10px 12px !important; }
+    .pitem { font-size:15px !important; padding:9px 12px !important; }
+    .pitem .mt { font-size:12px !important; }
+    .bdg { font-size:12px !important; }
+    body.printcarp .parea:not(.parea-carpinteria){ display:none !important; }
+    body.printcarp .phz{ display:none !important; }
+  }
 </style>
+<style id="printPage"></style>
 </head>
 <body>
 <header>
@@ -82,10 +107,12 @@
   <div style="display:flex;gap:8px;align-items:center">
     <div class="tabs"><button class="tab on" id="tGantt">Gantt</button><button class="tab" id="tKanban">Kanban</button><button class="tab" id="tPend">Pendientes</button></div>
     <label class="btn primary">Cargar Excel<input id="file" type="file" accept=".xlsx,.xls" style="display:none"></label>
+    <button class="ghost" id="print" title="Imprimir (doble carta horizontal)">Imprimir</button>
     <!-- Botón "Ver ejemplo" OCULTO a pedido (operación real usa datos.xlsx). Para reactivarlo, quitar style="display:none". -->
     <button class="ghost" id="demo" style="display:none">Ver ejemplo</button>
   </div>
 </header>
+<div id="wallhead"></div>
 <div id="wrap">
   <div id="app"><div class="empty">Carga la <b>hoja de captura V3</b> (Localidades · Eventos · Elementos · Parametros) con <b>“Cargar Excel”</b>,<br>o pulsa <b>“Ver ejemplo”</b>. Arriba cambias entre <b>Gantt</b> y <b>Kanban</b>.</div></div>
 </div>
@@ -101,7 +128,7 @@ const diffD=(a,b)=>Math.round((a-b)/MS);
 const MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 const fmt=d=>`${d.getDate()} ${MES[d.getMonth()]}`;
 const _n=new Date();const TODAY=new Date(_n.getFullYear(),_n.getMonth(),_n.getDate());
-let DATA=null,PARAMS=null,collapsed={},VIEW="gantt",showOld=false;const OLD_DAYS=20;
+let DATA=null,PARAMS=null,collapsed={},VIEW="gantt",showOld=false,WIN=null;const OLD_DAYS=20;
 
 function cap(d,P){const w=d.getDay();return w===0?P.dom:(w===6?P.sab:1);}
 function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=0,g=0;while(acc<D-1e-9&&g<6000){d=addD(d,-1);acc+=cap(d,P);g++;}return d;}
@@ -109,7 +136,7 @@ function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=
 function defaultParams(){return {
   f:{entrevista:2,cotizacion:3,diseno:5,aprobacion:3,planeacion:2,compra:4,prearmado:2,carga:1,transporte:1,montaje:2,desmontaje:1,retorno:1,acomodo:1},
   loc:{"CDMX (local)":{ida:0,ret:0},"Puebla":{ida:1,ret:1},"Querétaro":{ida:1,ret:1},"León":{ida:1,ret:1},"Veracruz":{ida:2,ret:2},"Oaxaca":{ida:2,ret:2},"Guadalajara":{ida:2,ret:2},"Monterrey":{ida:2,ret:2},"Chihuahua":{ida:3,ret:3},"Mérida":{ida:3,ret:3}},
-  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,cap:3,sab:0.5,dom:0};}
+  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,zRed:0.25,zPurple:0.25,cap:3,sab:0.5,dom:0};}
 function demoData(){const P=defaultParams();return {params:P,
   eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,montaje:2,desmontaje:1},
    {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,montaje:2,desmontaje:1},
@@ -219,9 +246,15 @@ function renderGantt(evs){
       rowsL+=`<div class="rowL stL">&nbsp;&nbsp;▸ ${el.nombre} <span class="pill">${el.tipo}</span> <span class="pill">${el.fab}d</span>${dp}</div>`;
       let sb="";
       if(b2.esc)sb+=`<div class="ebar bar" title="Escalera (${P.leadEsc} días háb.)" style="left:${x(b2.esc.start)}px;width:${Math.max(x(b2.esc.end)-x(b2.esc.start),3)}px"></div>`;
-      sb+=`<div class="bar sbar" title="Carpintería ${el.nombre}: ${fmt(b2.carp.start)}–${fmt(b2.carp.end)}" style="left:${x(b2.carp.start)}px;width:${Math.max(x(b2.carp.end)-x(b2.carp.start),2)}px;background:${CAT.PROD.c};opacity:.85"></div>`;
-      sb+=`<div class="bar sbar" title="Pintura ${el.nombre}: ${fmt(b2.pint.start)}–${fmt(b2.pint.end)}" style="left:${x(b2.pint.start)}px;width:${Math.max(x(b2.pint.end)-x(b2.pint.start),2)}px;background:${CAT.PINT.c};opacity:.85"></div>`;
-      sb+=`<span class="prn" title="Impresión en paralelo a pintura" style="left:${x(b2.pint.end)-14}px">🖨️</span>`;
+      // Una sola barra de fabricación con 3 zonas: rojo (solo carpintería) → cuadros (traslape) → morado (solo pintura)
+      const bx=x(b2.carp.start), bw=Math.max(x(b2.pint.end)-x(b2.carp.start),3);
+      const wR=Math.round(bw*(PARAMS.zRed??0.25)), wP=Math.round(bw*(PARAMS.zPurple??0.25)), wM=Math.max(bw-wR-wP,0);
+      sb+=`<div class="bar sbar" title="Fabricación ${el.nombre}: ${fmt(b2.carp.start)}–${fmt(b2.pint.end)} (${el.fab} días). Rojo=solo carpintería · cuadros=carpintería+pintura · morado=solo pintura/emplaye" style="left:${bx}px;width:${bw}px;padding:0;background:none;overflow:hidden">`+
+            `<span style="position:absolute;left:0;top:0;bottom:0;width:${wR}px;background:${CAT.PROD.c}"></span>`+
+            `<span class="zmix" style="position:absolute;left:${wR}px;top:0;bottom:0;width:${wM}px"></span>`+
+            `<span style="position:absolute;left:${wR+wM}px;top:0;bottom:0;width:${wP}px;background:${CAT.PINT.c}"></span>`+
+          `</div>`;
+      sb+=`<span class="prn" title="Emplaye/impresión al cierre" style="left:${x(b2.pint.end)-14}px">🖨️</span>`;
       rowsB+=`<div class="rowB">${sb}</div>`;y+=ROWH;
     });
   });
@@ -257,7 +290,7 @@ let HORIZON=3;
 function inH(a,b,H0,H1){return b>H0 && a<=H1;}   // ventana [a,b] cruza [H0,H1]
 function badge(kind){return {ret:'<span class="bdg b-ret">Atrasado</span>',ok:'<span class="bdg b-ok">En tiempo</span>',soon:'<span class="bdg b-soon">Por empezar</span>',go:'<span class="bdg b-go">Acción</span>'}[kind];}
 function renderPendientes(evs){
-  const H0=new Date(TODAY), H1=addD(TODAY,HORIZON);
+  const H0=WIN?new Date(WIN.start):new Date(TODAY), H1=WIN?new Date(WIN.end):addD(TODAY,HORIZON);
   // ---- sección fija POR PEDIR (todos los pedidos, con fecha límite y semáforo) ----
   const pedir=[];
   evs.forEach(e=>{const sc=e.sc,evn=e.ev.evento;
@@ -289,11 +322,11 @@ function renderPendientes(evs){
     sc.post.forEach(p=>{if(inH(p.start,p.end,H0,H1))bucket["Cierre (desmontaje/retorno)"].push({who:p.name,mt:`${evn} · ${fD(p.start)}–${fD(p.end)}`,b:"go"});});
   });
   const rank={ret:0,go:1,soon:2,ok:3};
-  let html=`<div class="phz"><b>Pendientes</b> — desde hoy (${fmt(TODAY)}) por los próximos
-    <select onchange="setHz(this.value)">
+  let html=`<div class="phz"><b>Pendientes</b> — ${WIN?`semana del ${fmt(WIN.start)} al ${fmt(WIN.end)}`:`desde hoy (${fmt(TODAY)}) por los próximos`}
+    ${WIN?"":`<select onchange="setHz(this.value)">
       <option value="0"${HORIZON===0?" selected":""}>solo hoy</option>
       <option value="3"${HORIZON===3?" selected":""}>3 días</option>
-      <option value="7"${HORIZON===7?" selected":""}>7 días</option></select>
+      <option value="7"${HORIZON===7?" selected":""}>7 días</option></select>`}
     <span class="mt" style="color:#777">Atrasado = el plan ya pide esa fase y el Estado capturado va más atrás.</span></div>`;
   if(pedVenc)html+=`<div class="alert"><b>${pedVenc} pedido(s) con fecha límite vencida</b> — riesgo de que el material/escalera no llegue a tiempo.</div>`;
   html+=pedirHTML;
@@ -302,7 +335,8 @@ function renderPendientes(evs){
     const items=bucket[a].sort((x,y)=>rank[x.b]-rank[y.b]);
     anyRet+=items.filter(i=>i.b==="ret").length;
     const rows=items.length?items.map(i=>`<div class="pitem"><div><span class="who">${i.who}</span><div class="mt">${i.mt}</div></div>${badge(i.b)}</div>`).join(""):`<div class="pempty">— sin pendientes en la ventana —</div>`;
-    html+=`<div class="parea"><div class="pah" style="background:${c}"><span>${a}</span><span>${items.length}</span></div>${rows}</div>`;
+    const slug=a.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]+/g,"-").replace(/^-|-$/g,"");
+    html+=`<div class="parea parea-${slug}"><div class="pah" style="background:${c}"><span>${a}</span><span>${items.length}</span></div>${rows}</div>`;
   });
   return (anyRet?`<div class="alert"><b>${anyRet} elemento(s) atrasado(s)</b> — el plan pide una fase más adelante que el estado capturado.</div>`:"")+html;
 }
@@ -319,14 +353,17 @@ function render(){
     toggle=`<div class="phz"><label style="cursor:pointer;user-select:none"><input type="checkbox" ${showOld?"checked":""} onchange="setShowOld(this.checked)" style="vertical-align:middle"> Ver eventos antiguos <span class="pill">${viejos.length} cerrados hace +${OLD_DAYS} días</span></label></div>`;
   }
   if(!evs.length){app.innerHTML=toggle+'<div class="empty">Todos los eventos cerraron hace más de '+OLD_DAYS+' días. Activa <b>“Ver eventos antiguos”</b> para mostrarlos.</div>';return;}
+  const sat = TODAY.getDay()===6 ? `<div class="satbar"><b>📢 Hoy es sábado: imprime la lista de CARPINTERÍA de la próxima semana para bajar a planta.</b><button onclick="printCarpentry()">Imprimir carpintería</button></div>` : "";
   const body = VIEW==="gantt"?renderGantt(evs):(VIEW==="kanban"?renderKanban(evs):renderPendientes(evs));
-  app.innerHTML = toggle + body;
+  app.innerHTML = sat + toggle + body;
   if(VIEW==="gantt"){
     const P=PARAMS,pg=document.getElementById("pg");
     const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["prearmado","Pre-armado"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
     let h=""; FN.forEach(([k,n])=>h+=`<div class="fld"><span>${n}</span><input type="number" min="0" step="0.5" value="${P.f[k]}" onchange="sf('${k}',this.value)"></div>`);
     h+=`<div class="fld"><span>Capacidad (elementos)</span><input type="number" min="1" value="${P.cap}" onchange="sc('cap',this.value)"></div>`;
     h+=`<div class="fld"><span>% carpintería</span><input type="number" min="0" max="1" step="0.05" value="${P.carpPct}" onchange="sc('carpPct',this.value)"></div>`;
+    h+=`<div class="fld"><span>Zona roja (solo carp.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zRed}" onchange="sc('zRed',this.value)"></div>`;
+    h+=`<div class="fld"><span>Zona morada (solo pint.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zPurple}" onchange="sc('zPurple',this.value)"></div>`;
     h+=`<div class="fld"><span>Días extra carpintería</span><input type="number" min="0" step="0.5" value="${P.extraCarp}" onchange="sc('extraCarp',this.value)"></div>`;
     h+=`<div class="fld"><span>Lead escalera (háb.)</span><input type="number" min="0" value="${P.leadEsc}" onchange="sc('leadEsc',this.value)"></div>`;
     h+=`<div class="fld"><span>Sábado (turno)</span><input type="number" min="0" max="1" step="0.1" value="${P.sab}" onchange="sc('sab',this.value)"></div>`;
@@ -346,6 +383,28 @@ document.getElementById("file").addEventListener("change",e=>{const f=e.target.f
   catch(err){document.getElementById("app").innerHTML='<div class="empty">No pude leer el archivo. Verifica hojas <b>Localidades, Eventos, Elementos, Parametros</b>.<br><span class="note">'+err+'</span></div>';}};
   r.readAsArrayBuffer(f);});
 document.getElementById("demo").addEventListener("click",()=>{DATA=demoData();PARAMS=DATA.params;collapsed={};render();});
+function fmtFull(d){const D=String(d.getDate()).padStart(2,"0"),M=String(d.getMonth()+1).padStart(2,"0");return `${D}/${M}/${d.getFullYear()}`;}
+function nextMonSat(){const day=TODAY.getDay();const toMon=((1-day+7)%7)||7;const lun=addD(TODAY,toMon);return {start:lun,end:addD(lun,5)};}
+function setWall(title,sub){const w=document.getElementById("wallhead");w.innerHTML=`<div class="wt">${title}</div><div class="ws">${sub}</div>`;}
+function setPage(v){document.getElementById("printPage").textContent = v==="pend" ? "@page { size: letter portrait; margin: 10mm; }" : "@page { size: 17in 11in; margin: 8mm; }";}
+document.getElementById("print").addEventListener("click",()=>{
+  const t = VIEW==="gantt"?"Pipeline — Gantt":(VIEW==="kanban"?"Pipeline — Tablero":"Pipeline — Pendientes");
+  setWall(t, `Impreso: ${fmtFull(TODAY)}`);
+  setPage(VIEW);
+  window.print();
+});
+window.printCarpentry=function(){
+  const wk=nextMonSat(); WIN=wk; VIEW="pend";
+  document.getElementById("tGantt").classList.remove("on");document.getElementById("tKanban").classList.remove("on");document.getElementById("tPend").classList.add("on");
+  render();
+  document.body.classList.add("printcarp");
+  setWall("CARPINTERÍA — para planta", `Semana del ${fmtFull(wk.start)} al ${fmtFull(wk.end)} · Impreso: ${fmtFull(TODAY)}`);
+  setPage("pend");
+  const cleanup=()=>{document.body.classList.remove("printcarp");WIN=null;render();window.removeEventListener("afterprint",cleanup);};
+  window.addEventListener("afterprint",cleanup);
+  window.print();
+  setTimeout(cleanup,1500); // respaldo por si afterprint no dispara
+};
 // Carga automática del Excel publicado en el repo (datos.xlsx). Si no existe, queda el estado inicial.
 async function autoLoad(){
   try{
