@@ -100,7 +100,7 @@ const diffD=(a,b)=>Math.round((a-b)/MS);
 const MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 const fmt=d=>`${d.getDate()} ${MES[d.getMonth()]}`;
 const _n=new Date();const TODAY=new Date(_n.getFullYear(),_n.getMonth(),_n.getDate());
-let DATA=null,PARAMS=null,collapsed={},VIEW="gantt";
+let DATA=null,PARAMS=null,collapsed={},VIEW="gantt",showOld=false;const OLD_DAYS=20;
 
 function cap(d,P){const w=d.getDay();return w===0?P.dom:(w===6?P.sab:1);}
 function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=0,g=0;while(acc<D-1e-9&&g<6000){d=addD(d,-1);acc+=cap(d,P);g++;}return d;}
@@ -108,18 +108,18 @@ function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=
 function defaultParams(){return {
   f:{entrevista:2,cotizacion:3,diseno:5,aprobacion:3,planeacion:2,compra:4,prearmado:2,carga:1,transporte:1,montaje:2,desmontaje:1,retorno:1,acomodo:1},
   loc:{"CDMX (local)":{ida:0,ret:0},"Puebla":{ida:1,ret:1},"Querétaro":{ida:1,ret:1},"León":{ida:1,ret:1},"Veracruz":{ida:2,ret:2},"Oaxaca":{ida:2,ret:2},"Guadalajara":{ida:2,ret:2},"Monterrey":{ida:2,ret:2},"Chihuahua":{ida:3,ret:3},"Mérida":{ida:3,ret:3}},
-  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,cap:3,sab:0.5,dom:0};}
+  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,cap:3,sab:0.5,dom:0};}
 function demoData(){const P=defaultParams();return {params:P,
-  eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,material:"Ninguno",lead:0},
-   {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,material:"Acrílico",lead:3},
-   {evento:"Expo Fire (FM Approvals)",recinto:"Puebla",localidad:"Puebla",inicio:new Date(2026,8,3),dias:3,material:"Vidrio templado",lead:7}],
+  eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,montaje:2,desmontaje:1},
+   {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,montaje:2,desmontaje:1},
+   {evento:"Expo Fire (FM Approvals)",recinto:"Puebla",localidad:"Puebla",inicio:new Date(2026,8,3),dias:3,montaje:3,desmontaje:1}],
   elementos:[{evento:"Anestesiología (Conexxión)",nombre:"Stand principal",tipo:"Stand",ancho:4,largo:3,dospisos:false,fab:6,estado:"Fabricación"},
-   {evento:"Glaucoma",nombre:"Isla A",tipo:"Stand",ancho:6,largo:3,dospisos:false,fab:8,estado:"Pintura"},
+   {evento:"Glaucoma",nombre:"Isla A",tipo:"Stand",ancho:6,largo:3,dospisos:false,fab:8,estado:"Pintura",vidrio:true,acrilico:false,lona:false},
    {evento:"Glaucoma",nombre:"Isla B",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Planos"},
    {evento:"Glaucoma",nombre:"Perimetral",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Fabricación"},
-   {evento:"Glaucoma",nombre:"Doble altura",tipo:"Stand",ancho:4,largo:5,dospisos:true,fab:12,estado:"Planos"},
+   {evento:"Glaucoma",nombre:"Doble altura",tipo:"Stand",ancho:4,largo:5,dospisos:true,fab:12,estado:"Planos",vidrio:false,acrilico:true,lona:false},
    {evento:"Glaucoma",nombre:"Registro",tipo:"Módulo de registro",ancho:3,largo:3,dospisos:false,fab:3,estado:"Propuesta"},
-   {evento:"Expo Fire (FM Approvals)",nombre:"Stand",tipo:"Stand",ancho:4,largo:5,dospisos:false,fab:10,estado:"Propuesta"}]};}
+   {evento:"Expo Fire (FM Approvals)",nombre:"Stand",tipo:"Stand",ancho:4,largo:5,dospisos:false,fab:10,estado:"Propuesta",vidrio:true,acrilico:false,lona:true}]};}
 
 function toDate(v){if(v instanceof Date)return new Date(v.getFullYear(),v.getMonth(),v.getDate());if(typeof v==="number"){const d=XLSX.SSF.parse_date_code(v);return new Date(d.y,d.m-1,d.d);}const p=new Date(v);return isNaN(p)?null:p;}
 function rows(wb,n){const ws=wb.Sheets[n];return ws?XLSX.utils.sheet_to_json(ws,{defval:""}):[];}
@@ -134,18 +134,18 @@ function parseWB(wb){
   const raw=XLSX.utils.sheet_to_json(wb.Sheets["Parametros"]||{},{header:1,defval:""});
   raw.forEach(row=>row.forEach((c,i)=>{const s=String(c).toLowerCase(),nx=row[i+1];if(nx===""||nx==null)return;
     if(s.includes("capacidad"))P.cap=+nx; else if(s.includes("carpintería")||s.includes("carpinteria"))P.carpPct=+nx;
-    else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx;
+    else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx; else if(s.includes("vidrio"))P.leadVidrio=+nx; else if(s.includes("acrílico")||s.includes("acrilico"))P.leadAcrilico=+nx; else if(s.includes("lona")||s.includes("impresión especial")||s.includes("impresion especial"))P.leadLona=+nx;
     else if(s.includes("sábado")||s.includes("sabado"))P.sab=+nx; else if(s.includes("domingo"))P.dom=+nx;}));
   const eventos=rows(wb,"Eventos").map(r=>({evento:String(gv(r,["evento"])).trim(),recinto:gv(r,["recinto"]),localidad:String(gv(r,["localidad"])).trim()||"CDMX (local)",
-    inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días","dias"])||3,material:gv(r,["material"])||"Ninguno",lead:+gv(r,["lead"])||0})).filter(e=>e.evento&&e.inicio);
+    inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1})).filter(e=>e.evento&&e.inicio);
   const elementos=rows(wb,"Elementos").map(r=>({evento:String(gv(r,["evento"])).trim(),nombre:gv(r,["elemento","nombre"]),tipo:gv(r,["tipo"])||"Stand",
-    ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:String(gv(r,["estado"])).trim()||"Propuesta"})).filter(e=>e.evento&&e.fab>0);
+    ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:String(gv(r,["estado"])).trim()||"Propuesta",vidrio:yes(gv(r,["vidrio"])),acrilico:yes(gv(r,["acrílico","acrilico"])),lona:yes(gv(r,["lona","impresión especial","impresion especial"]))})).filter(e=>e.evento&&e.fab>0);
   return {eventos,elementos,params:P};
 }
 
 function schedule(ev,els,P){
   const loc=P.loc[ev.localidad]||{ida:0,ret:0}, f=P.f, evStart=ev.inicio;
-  const montS=addD(evStart,-f.montaje), transpStart=addD(montS,-(f.transporte+loc.ida)), fabEnd=addD(transpStart,-f.carga);
+  const montS=addD(evStart,-(ev.montaje||f.montaje)), transpStart=addD(montS,-(f.transporte+loc.ida)), fabEnd=addD(transpStart,-f.carga);
   const pintEnd=workBack(fabEnd,f.prearmado,P);   // fin de pintura = inicio pre-armado (compartido)
   const N=Math.max(1,Math.round(P.cap)); const lanes=new Array(N).fill(pintEnd);
   const order=els.map((e,i)=>({e,i})).sort((a,b)=>(b.e.fab-a.e.fab)||(a.i-b.i));  // el más grande TERMINA pegado a la carga (se fabrica al final, sale de inmediato)
@@ -174,12 +174,19 @@ function schedule(ev,els,P){
     ["PROD","Carpintería (envelope)",earliest,cSplit],["PINT","Pintura (envelope)",cSplit,pintEnd],
     ["PROD","Pre-armado",pintEnd,fabEnd],["LOG","Carga",fabEnd,transpStart],["LOG","Transporte",transpStart,montS],["LOG","Montaje",montS,evStart]]
     .map(a=>({cat:a[0],name:a[1],start:a[2],end:a[3]}));
-  const evEnd=addD(evStart,ev.dias),desmEnd=addD(evEnd,f.desmontaje),retEnd=addD(desmEnd,f.retorno+loc.ret),acoEnd=addD(retEnd,f.acomodo);
+  const evEnd=addD(evStart,ev.dias),desmEnd=addD(evEnd,ev.desmontaje||f.desmontaje),retEnd=addD(desmEnd,f.retorno+loc.ret),acoEnd=addD(retEnd,f.acomodo);
   const post=[{cat:"CIE",name:"Desmontaje",start:evEnd,end:desmEnd},{cat:"CIE",name:"Retorno",start:desmEnd,end:retEnd},{cat:"CIE",name:"Acomodo",start:retEnd,end:acoEnd}];
-  let projS=entS,material=null;
-  if(ev.lead>0){const need=workBack(fabEnd,P.matColchon||0,P); const ms=workBack(need,ev.lead,P); material={start:ms,end:need,name:ev.material}; if(ms<projS)projS=ms;}
+  let projS=entS;
+  // Materiales de largo plazo: unión de lo que piden los elementos del evento. Se amarran a la carga − colchón.
+  const need=workBack(fabEnd,P.matColchon||0,P);
+  const MATS=[["vidrio","Vidrio templado",P.leadVidrio],["acrilico","Acrílico",P.leadAcrilico],["lona","Lona/impresión especial",P.leadLona]];
+  const materiales=[];
+  MATS.forEach(([key,label,lead])=>{
+    const con=els.filter(e=>e[key]);
+    if(con.length){ const ms=workBack(need,lead||0,P); materiales.push({key,name:label,start:ms,end:need,elementos:con.map(e=>e.nombre)}); if(ms<projS)projS=ms; }
+  });
   eb.forEach(b=>{if(b.esc&&b.esc.start<projS)projS=b.esc.start;});
-  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,material,eb,fabEnd,transpStart,montS};
+  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS};
 }
 
 function build(){return DATA.eventos.map(ev=>{const els=DATA.elementos.filter(e=>e.evento===ev.evento);return {ev,els,sc:schedule(ev,els,PARAMS)};});}
@@ -195,16 +202,16 @@ function renderGantt(evs){
   const bands=[];let bs=null;for(let d=0;d<total;d++){const hi=carga[d]>P.cap;if(hi&&bs===null)bs=d;if((!hi||d===total-1)&&bs!==null){bands.push([bs,hi?d:d-1]);bs=null;}}
   let sun="";for(let i=0;i<total;i++){if(addD(min,i).getDay()===0)sun+=`<div class="sun" style="left:${i*DAYW}px;width:${DAYW}px"></div>`;}
   let rowsL="",rowsB="",y=0;
-  evs.forEach(e=>{
-    const col=collapsed[e.ev.evento];
-    const mtag=e.ev.lead>0?`<span class="tag tagF">${e.ev.material} ${e.ev.lead}dh</span>`:"";
+  evs.forEach((e,ei)=>{
+    const col=collapsed[ei];
+    const nmat=(e.sc.materiales||[]).length; const mtag=nmat?`<span class="tag tagF">${nmat} material(es)</span>`:"";
     const n2=e.els.filter(x=>x.dospisos).length,ptag=n2?`<span class="tag tag2p">${n2}×2p</span>`:"";
-    rowsL+=`<div class="rowL evL" onclick="tg('${e.ev.evento.replace(/'/g,"\\'")}')">${col?"▸":"▾"} <b>${e.ev.evento}</b> <span class="tag">${e.ev.localidad}</span>${mtag}${ptag}</div>`;
+    rowsL+=`<div class="rowL evL" onclick="tg(${ei})">${col?"▸":"▾"} <b>${e.ev.evento}</b> <span class="tag">${e.ev.localidad}</span>${mtag}${ptag}</div>`;
     let b="";
     e.sc.env.forEach(s=>{const w=Math.max(x(s.end)-x(s.start),s.cat==="HITO"?7:3);b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${w}px;background:${CAT[s.cat].c}"></div>`;});
     b+=`<div class="bar" title="Evento" style="left:${x(e.sc.evStart)}px;width:${Math.max(diffD(e.sc.evEnd,e.sc.evStart)*DAYW,4)}px;background:${CAT.EVT.c}"></div>`;
     e.sc.post.forEach(s=>{b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${Math.max(x(s.end)-x(s.start)-1,3)}px;background:${CAT.CIE.c};opacity:.8"></div>`;});
-    if(e.sc.material)b+=`<div class="mbar bar" title="Pedido ${e.sc.material.name} (${e.ev.lead} días háb.)" style="left:${x(e.sc.material.start)}px;width:${Math.max(x(e.sc.material.end)-x(e.sc.material.start),4)}px"></div>`;
+    (e.sc.materiales||[]).forEach(m=>{b+=`<div class="mbar bar" title="Pedir ${m.name} — para: ${m.elementos.join(", ")}" style="left:${x(m.start)}px;width:${Math.max(x(m.end)-x(m.start),4)}px"></div>`;});
     rowsB+=`<div class="rowB">${b}</div>`;y+=ROWH;
     if(!col)e.sc.eb.forEach(b2=>{const el=b2.el;
       const dp=el.dospisos?' <span class="pill" style="background:#DBEAFE;color:#1e40af">2p</span>':'';
@@ -253,13 +260,13 @@ function renderPendientes(evs){
   // ---- sección fija POR PEDIR (todos los pedidos, con fecha límite y semáforo) ----
   const pedir=[];
   evs.forEach(e=>{const sc=e.sc,evn=e.ev.evento;
-    if(sc.material) pedir.push({what:`Pedir ${sc.material.name}`,ev:evn,by:sc.material.start,need:sc.material.end});
+    (sc.materiales||[]).forEach(m=>pedir.push({what:`Pedir ${m.name}`,ev:evn,by:m.start,need:m.end,para:m.elementos.join(", ")}));
     sc.eb.forEach(b=>{if(b.escBy)pedir.push({what:`Escalera — ${b.el.nombre}`,ev:evn,by:b.escBy.by,need:b.escBy.need});});
   });
   function sem(by){const d=diffD(by,TODAY); if(d<0)return["ret","Pedir ya"]; if(d<=5)return["soon","Pronto"]; return["ok","Con tiempo"];}
   pedir.sort((a,b)=>a.by-b.by);
   let pedirHTML=`<div class="parea"><div class="pah" style="background:#0f766e"><span>🛒 Por pedir — materiales de largo plazo y escaleras</span><span>${pedir.length}</span></div>`;
-  pedirHTML+= pedir.length? pedir.map(p=>{const [k,txt]=sem(p.by);return `<div class="pitem"><div><span class="who">${p.what}</span><div class="mt">${p.ev} · límite para pedir: <b>${fmt(p.by)}</b> · necesario: ${fmt(p.need)}</div></div><span class="bdg b-${k}">${txt}</span></div>`;}).join("") : `<div class="pempty">— sin pedidos de largo plazo —</div>`;
+  pedirHTML+= pedir.length? pedir.map(p=>{const [k,txt]=sem(p.by);return `<div class="pitem"><div><span class="who">${p.what}</span><div class="mt">${p.ev} · límite para pedir: <b>${fmt(p.by)}</b> · necesario: ${fmt(p.need)}${p.para?" · para: "+p.para:""}</div></div><span class="bdg b-${k}">${txt}</span></div>`;}).join("") : `<div class="pempty">— sin pedidos de largo plazo —</div>`;
   pedirHTML+=`</div>`;
   const pedVenc=pedir.filter(p=>diffD(p.by,TODAY)<0).length;
   // ---- áreas del día (por horizonte) ----
@@ -302,12 +309,20 @@ window.setHz=v=>{HORIZON=+v;render();};
 
 function render(){
   const app=document.getElementById("app");
-  const evs=build();
-  if(!evs.length){app.innerHTML='<div class="empty">No encontré eventos/elementos. Revisa las hojas.</div>';return;}
-  app.innerHTML = VIEW==="gantt"?renderGantt(evs):(VIEW==="kanban"?renderKanban(evs):renderPendientes(evs));
+  const allEvs=build();
+  if(!allEvs.length){app.innerHTML='<div class="empty">No encontré eventos/elementos. Revisa las hojas.</div>';return;}
+  const viejos=allEvs.filter(e=>diffD(TODAY,e.sc.projEnd)>OLD_DAYS);
+  const evs=showOld?allEvs:allEvs.filter(e=>diffD(TODAY,e.sc.projEnd)<=OLD_DAYS);
+  let toggle="";
+  if(viejos.length){
+    toggle=`<div class="phz"><label style="cursor:pointer;user-select:none"><input type="checkbox" ${showOld?"checked":""} onchange="setShowOld(this.checked)" style="vertical-align:middle"> Ver eventos antiguos <span class="pill">${viejos.length} cerrados hace +${OLD_DAYS} días</span></label></div>`;
+  }
+  if(!evs.length){app.innerHTML=toggle+'<div class="empty">Todos los eventos cerraron hace más de '+OLD_DAYS+' días. Activa <b>“Ver eventos antiguos”</b> para mostrarlos.</div>';return;}
+  const body = VIEW==="gantt"?renderGantt(evs):(VIEW==="kanban"?renderKanban(evs):renderPendientes(evs));
+  app.innerHTML = toggle + body;
   if(VIEW==="gantt"){
     const P=PARAMS,pg=document.getElementById("pg");
-    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["prearmado","Pre-armado"],["carga","Carga"],["transporte","Transporte"],["montaje","Montaje"],["desmontaje","Desmontaje"],["retorno","Retorno"],["acomodo","Acomodo"]];
+    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["prearmado","Pre-armado"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
     let h=""; FN.forEach(([k,n])=>h+=`<div class="fld"><span>${n}</span><input type="number" min="0" step="0.5" value="${P.f[k]}" onchange="sf('${k}',this.value)"></div>`);
     h+=`<div class="fld"><span>Capacidad (elementos)</span><input type="number" min="1" value="${P.cap}" onchange="sc('cap',this.value)"></div>`;
     h+=`<div class="fld"><span>% carpintería</span><input type="number" min="0" max="1" step="0.05" value="${P.carpPct}" onchange="sc('carpPct',this.value)"></div>`;
@@ -317,7 +332,8 @@ function render(){
     pg.innerHTML=h;
   }
 }
-window.tg=e=>{collapsed[e]=!collapsed[e];render();};
+window.setShowOld=v=>{showOld=v;render();};
+window.tg=i=>{collapsed[i]=!collapsed[i];render();};
 window.sf=(k,v)=>{PARAMS.f[k]=+v||0;render();};
 window.sc=(k,v)=>{PARAMS[k]=+v||0;render();};
 function setView(v){VIEW=v;document.getElementById("tGantt").classList.toggle("on",v==="gantt");document.getElementById("tKanban").classList.toggle("on",v==="kanban");document.getElementById("tPend").classList.toggle("on",v==="pend");if(DATA)render();}
