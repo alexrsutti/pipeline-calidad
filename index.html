@@ -120,8 +120,8 @@
 const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PROD:{c:"#C0392B",n:"Carpintería"},
   PINT:{c:"#7C3AED",n:"Pintura (cuello)"},CARGA:{c:"#0D9488",n:"Carga"},TRANSP:{c:"#0891B2",n:"Transporte"},MONT:{c:"#EA580C",n:"Montaje"},EVT:{c:"#16A34A",n:"Evento"},DESM:{c:"#F59E0B",n:"Desmontaje"},REGA:{c:"#14B8A6",n:"Regreso a almacén"},
   MAT:{c:"#B45309",n:"Material largo plazo"},ESC:{c:"#334155",n:"Escalera (2 pisos)"}};
-const ESTADOS=["Propuesta","Planos","Fabricación","Pintura","En montaje","Evento","Cerrado"];
-const ECOL={"Propuesta":"#94a3b8","Planos":"#2563EB","Fabricación":"#C0392B","Pintura":"#7C3AED","En montaje":"#0D9488","Evento":"#16A34A","Cerrado":"#6B7280"};
+const ESTADOS=["Propuesta","Planos","Producción","En montaje","Evento","Cerrado"];
+const ECOL={"Propuesta":"#94a3b8","Planos":"#2563EB","Producción":"#C0392B","En montaje":"#0D9488","Evento":"#16A34A","Cerrado":"#6B7280"};
 const MS=86400000,DAYW=13,ROWH=30;
 const addD=(d,n)=>new Date(d.getTime()+Math.round(n)*MS);
 const diffD=(a,b)=>Math.round((a-b)/MS);
@@ -141,10 +141,10 @@ function demoData(){const P=defaultParams();return {params:P,
   eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,montaje:2,desmontaje:1},
    {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,montaje:2,desmontaje:1},
    {evento:"Expo Fire (FM Approvals)",recinto:"Puebla",localidad:"Puebla",inicio:new Date(2026,8,3),dias:3,montaje:3,desmontaje:1}],
-  elementos:[{evento:"Anestesiología (Conexxión)",nombre:"Stand principal",tipo:"Stand",ancho:4,largo:3,dospisos:false,fab:6,estado:"Fabricación"},
-   {evento:"Glaucoma",nombre:"Isla A",tipo:"Stand",ancho:6,largo:3,dospisos:false,fab:8,estado:"Pintura",vidrio:true,acrilico:false,lona:false},
+  elementos:[{evento:"Anestesiología (Conexxión)",nombre:"Stand principal",tipo:"Stand",ancho:4,largo:3,dospisos:false,fab:6,estado:"Producción"},
+   {evento:"Glaucoma",nombre:"Isla A",tipo:"Stand",ancho:6,largo:3,dospisos:false,fab:8,estado:"Producción",vidrio:true,acrilico:false,lona:false},
    {evento:"Glaucoma",nombre:"Isla B",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Planos"},
-   {evento:"Glaucoma",nombre:"Perimetral",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Fabricación"},
+   {evento:"Glaucoma",nombre:"Perimetral",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Producción"},
    {evento:"Glaucoma",nombre:"Doble altura",tipo:"Stand",ancho:4,largo:5,dospisos:true,fab:12,estado:"Planos",vidrio:false,acrilico:true,lona:false},
    {evento:"Glaucoma",nombre:"Registro",tipo:"Módulo de registro",ancho:3,largo:3,dospisos:false,fab:3,estado:"Propuesta"},
    {evento:"Expo Fire (FM Approvals)",nombre:"Stand",tipo:"Stand",ancho:4,largo:5,dospisos:false,fab:10,estado:"Propuesta",vidrio:true,acrilico:false,lona:true}]};}
@@ -167,7 +167,7 @@ function parseWB(wb){
   const eventos=rows(wb,"Eventos").map(r=>({evento:String(gv(r,["evento"])).trim(),recinto:gv(r,["recinto"]),localidad:String(gv(r,["localidad"])).trim()||"CDMX (local)",
     inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1,planosBajados:yes(gv(r,["planos bajados","planos"]))})).filter(e=>e.evento&&e.inicio);
   const elementos=rows(wb,"Elementos").map(r=>({evento:String(gv(r,["evento"])).trim(),nombre:gv(r,["elemento","nombre"]),tipo:gv(r,["tipo"])||"Stand",
-    ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:String(gv(r,["estado"])).trim()||"Propuesta",vidrio:yes(gv(r,["vidrio"])),acrilico:yes(gv(r,["acrílico","acrilico"])),lona:yes(gv(r,["lona","impresión especial","impresion especial"]))})).filter(e=>e.evento&&e.fab>0);
+    ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:(s=>((s==="Fabricación"||s==="Pintura")?"Producción":s))(String(gv(r,["estado"])).trim()||"Propuesta"),vidrio:yes(gv(r,["vidrio"])),acrilico:yes(gv(r,["acrílico","acrilico"])),lona:yes(gv(r,["lona","impresión especial","impresion especial"]))})).filter(e=>e.evento&&e.fab>0);
   return {eventos,elementos,params:P};
 }
 
@@ -336,7 +336,7 @@ function renderKanban(evs){
   return `<div class="legend"><span class="lg">Tablero por estado · ${tot} elementos · el estado se captura en el Excel (columna Estado)</span></div><div class="kb">${cols}</div>`;
 }
 
-const ESTIDX={"Propuesta":0,"Planos":1,"Fabricación":2,"Pintura":3,"En montaje":4,"Evento":5,"Cerrado":6};
+const ESTIDX={"Propuesta":0,"Planos":1,"Producción":2,"En montaje":3,"Evento":4,"Cerrado":5,"Fabricación":2,"Pintura":2};
 let HORIZON=3;
 function inH(a,b,H0,H1){return b>H0 && a<=H1;}   // ventana [a,b] cruza [H0,H1]
 function badge(kind){return {ret:'<span class="bdg b-ret">Atrasado</span>',ok:'<span class="bdg b-ok">En tiempo</span>',soon:'<span class="bdg b-soon">Por empezar</span>',go:'<span class="bdg b-go">Acción</span>'}[kind];}
@@ -364,7 +364,7 @@ function renderPendientes(evs){
       const est=ESTIDX[b.el.estado]??0;
       if(inH(b.carp.start,b.carp.end,H0,H1)){const late=TODAY>=b.carp.start && est<2;
         bucket["Carpintería"].push({who:b.el.nombre,mt:`${evn} · ${fD(b.carp.start)}–${fD(b.carp.end)} · estado: ${b.el.estado}`,b:late?"ret":(TODAY<b.carp.start?"soon":"ok")});}
-      if(inH(b.pint.start,b.pint.end,H0,H1)){const late=TODAY>=b.pint.start && est<3;
+      if(inH(b.pint.start,b.pint.end,H0,H1)){const late=TODAY>=b.pint.start && est<2;
         bucket["Pintura"].push({who:b.el.nombre,mt:`${evn} · ${fD(b.pint.start)}–${fD(b.pint.end)} · estado: ${b.el.estado}`,b:late?"ret":(TODAY<b.pint.start?"soon":"ok")});}
     });
     if(inH(sc.fabEnd,sc.transpStart,H0,H1)) bucket["Carga"].push({who:"Carga de camión",mt:`${evn} · ${fD(sc.fabEnd)}`,b:"go"});
@@ -379,15 +379,12 @@ function renderPendientes(evs){
       <option value="7"${HORIZON===7?" selected":""}>7 días</option></select>`}
     <span class="mt" style="color:#777">Atrasado = el plan ya pide esa fase y el Estado capturado va más atrás.</span></div>`;
   if(pedVenc)html+=`<div class="alert"><b>${pedVenc} pedido(s) con fecha límite vencida</b> — riesgo de que el material/escalera no llegue a tiempo.</div>`;
-  // Planos sin bajar: si el evento tiene fecha de "Planos bajados" se considera bajado (y medimos demora).
-  // Si NO tiene fecha, se infiere del Estado: alerta si el hito ya pasó y el elemento sigue en Propuesta/Planos.
+  // Planos sin bajar: el hito ya pasó (aprobado) pero el diseñador NO ha marcado "Planos bajados = Sí".
+  // Es independiente del Estado del Kanban: los días sin bajar son días robados a producción.
   const sinBajar=[];
-  evs.forEach(e=>{ const pb=e.ev.planosBajados;
-    if(pb) return;   // ya registrado que bajaron → sin alerta
-    if(e.sc.bajarPlanos<=TODAY) e.els.forEach(el=>{ if((ESTIDX[el.estado]??0)<2) sinBajar.push({ev:e.ev.evento,el:el.nombre,dias:diffD(TODAY,e.sc.bajarPlanos),estado:el.estado}); });
-  });
+  evs.forEach(e=>{ if(!e.ev.planosBajados && e.sc.bajarPlanos<=TODAY) sinBajar.push({ev:e.ev.evento,dias:diffD(TODAY,e.sc.bajarPlanos),n:e.els.length}); });
   if(sinBajar.length){
-    const filas=sinBajar.sort((a,b)=>b.dias-a.dias).map(s=>`<div class="pitem"><div><span class="who">${s.el}</span><div class="mt">${s.ev} · debieron bajar hace <b>${s.dias} día(s)</b> · estado: ${s.estado}</div></div><span class="bdg b-ret">Sin bajar</span></div>`).join("");
+    const filas=sinBajar.sort((a,b)=>b.dias-a.dias).map(s=>`<div class="pitem"><div><span class="who">${s.ev}</span><div class="mt">aprobado hace <b>${s.dias} día(s)</b>, planos sin bajar a producción · ${s.n} elemento(s) esperando</div></div><span class="bdg b-ret">Sin bajar</span></div>`).join("");
     html+=`<div class="parea"><div class="pah" style="background:#b91c1c"><span>⚠️ Planos aprobados sin bajar a producción</span><span>${sinBajar.length}</span></div>${filas}</div>`;
   }
   html+=pedirHTML;
