@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pipeline — Calidad y Atención (V3)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--red:#C0392B;--ink:#1a1a1a;--mut:#6b7280;--line:#e5e7eb;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Arial,sans-serif;color:var(--ink);background:#faf9f7}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:2px solid #111;background:#fff;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;letter-spacing:-.2px}
+  .sub{font-size:11px;color:var(--mut);font-family:ui-monospace,monospace;margin-top:2px}
+  button,label.btn{font:inherit;font-size:12px;font-weight:600;border:0;border-radius:6px;padding:7px 12px;cursor:pointer}
+  .primary{background:#111;color:#fff}.primary:hover{background:#333}
+  .ghost{background:#eee;color:#333}.ghost:hover{background:#e0e0e0}
+  .tabs{display:flex;gap:4px;background:#eceae7;padding:3px;border-radius:8px}
+  .tab{background:transparent;color:#555;padding:6px 16px}
+  .tab.on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+  #wrap{padding:14px 18px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 12px}
+  .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#444}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .board{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .labels{flex:0 0 250px;border-right:1px solid var(--line);background:#fafafa}
+  .tl{flex:1;overflow-x:auto}
+  .axis{height:36px;position:relative;border-bottom:1px solid var(--line)}
+  .rowL{height:30px;display:flex;align-items:center;padding:0 8px;border-bottom:1px solid #f1f1f1;font-size:12px;gap:6px;white-space:nowrap;overflow:hidden}
+  .evL{background:#eef0f2;font-weight:700;cursor:pointer}
+  .stL{color:#333;font-size:11px}
+  .tag{font-size:9px;background:#e5e7eb;color:#555;padding:0 5px;border-radius:4px;font-family:ui-monospace,monospace}
+  .tagF{background:#FEF3C7;color:#92400e}.tag2p{background:#DBEAFE;color:#1e40af}
+  .body{position:relative}
+  .rowB{height:30px;position:relative;border-bottom:1px solid #f1f1f1}
+  .bar{position:absolute;height:15px;top:7px;border-radius:3px;opacity:.94}
+  .sbar{height:12px;top:9px;border-radius:3px}
+  .mbar{height:8px;top:11px;border-radius:2px;background:repeating-linear-gradient(45deg,#B45309,#B45309 4px,#d97706 4px,#d97706 8px)}
+  .ebar{height:8px;top:2px;border-radius:2px;background:repeating-linear-gradient(45deg,#334155,#334155 4px,#64748b 4px,#64748b 8px)}
+  .prn{position:absolute;top:8px;font-size:10px;z-index:3}
+  .cargaRow{height:26px;position:relative;border-top:2px solid #eee;background:#fff}
+  .cell{position:absolute;top:3px;height:20px;font-size:9px;font-weight:700;text-align:center;font-family:ui-monospace,monospace;line-height:20px}
+  .sun{position:absolute;top:0;bottom:0;background:#f6f6f6}
+  .today{position:absolute;top:0;bottom:0;width:2px;background:#111;z-index:5}
+  .mtick{position:absolute;top:0;bottom:0;border-left:1px solid #e3e3e3;font-size:10px;color:#999;padding-left:2px;font-family:ui-monospace,monospace}
+  .band{position:absolute;top:0;bottom:0;background:rgba(192,0,0,.09);border-left:1px solid rgba(192,0,0,.3);border-right:1px solid rgba(192,0,0,.3)}
+  .params{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px}
+  .params h3{margin:0 0 8px;font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px}
+  .fld{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;border-bottom:1px dashed #eee;padding:3px 0}
+  .fld input{width:56px;text-align:center;font:inherit;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:2px}
+  .empty{padding:40px;text-align:center;color:var(--mut)} .empty b{color:#111}
+  .note{font-size:11px;color:var(--mut);margin-top:8px;font-family:ui-monospace,monospace}
+  .pill{font-size:10px;padding:1px 6px;border-radius:8px;background:#f3f4f6;color:#555;font-family:ui-monospace,monospace}
+  .alert{margin-top:10px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;border-radius:8px;padding:8px 10px;font-size:12px}
+  /* kanban */
+  .kb{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+  .kcol{flex:0 0 210px;background:#f3f2f0;border-radius:10px;padding:8px}
+  .kh{font-size:12px;font-weight:700;margin:2px 4px 8px;display:flex;justify-content:space-between;align-items:center}
+  .kcount{font-size:10px;background:#fff;border-radius:8px;padding:0 6px;color:#555}
+  .kcard{background:#fff;border:1px solid #e5e7eb;border-left:4px solid #999;border-radius:8px;padding:7px 8px;margin-bottom:7px;box-shadow:0 1px 1px rgba(0,0,0,.03)}
+  .kcard b{font-size:12px}.kcard .m{font-size:10px;color:#777;margin-top:2px}
+  .hide{display:none}
+  .zmix{background:repeating-conic-gradient(#C0392B 0% 25%, #7C3AED 0% 50%) 50%/9px 9px;}
+  .satbar{margin:0 0 12px;background:#0f172a;color:#fff;border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .satbar b{font-size:14px}
+  .satbar button{background:#f59e0b;color:#111;border:0;border-radius:6px;padding:7px 12px;font-weight:700;cursor:pointer}
+  #wallhead{display:none}
+  /* pendientes */
+  .phz{display:flex;gap:8px;align-items:center;margin:6px 0 12px;flex-wrap:wrap}
+  .phz select{font:inherit;font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px}
+  .parea{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;overflow:hidden}
+  .pah{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-weight:700;font-size:13px;color:#fff}
+  .pitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid #f1f1f1;font-size:12px}
+  .pitem .who{font-weight:600}.pitem .mt{color:#777;font-size:11px}
+  .bdg{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+  .b-ret{background:#fee2e2;color:#b91c1c}.b-ok{background:#dcfce7;color:#166534}.b-soon{background:#fef3c7;color:#92400e}.b-go{background:#dbeafe;color:#1e40af}
+  .pempty{padding:10px 12px;color:#aaa;font-size:12px;border-top:1px solid #f1f1f1}
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background:#fff; }
+    header > div:last-child { display:none !important; }  /* pestañas y botones */
+    .params, #print, .satbar { display:none !important; } /* panel de edición, botón y banner */
+    .phz select, .phz input { display:none !important; }   /* controles de horizonte/antiguos */
+    .tl { overflow: visible !important; }                  /* imprimir todo el ancho */
+    .board, .parea, .kcol { break-inside: avoid; }
+    #wrap { padding:0 }
+    #wallhead { display:block !important; border-bottom:3px solid #111; margin-bottom:10px; padding-bottom:6px; }
+    #wallhead .wt { font-size:26px; font-weight:800; }
+    #wallhead .ws { font-size:16px; color:#333; }
+    .pah { font-size:18px !important; padding:10px 12px !important; }
+    .pitem { font-size:15px !important; padding:9px 12px !important; }
+    .pitem .mt { font-size:12px !important; }
+    .bdg { font-size:12px !important; }
+    body.printcarp .parea:not(.parea-carpinteria){ display:none !important; }
+    body.printcarp .phz{ display:none !important; }
+  }
+</style>
+<style id="printPage"></style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Pipeline — Calidad y Atención</h1>
+    <div class="sub">Excel de captura → app · días de fabricación del experto (40/60, +1 día carpintería) · Gantt + Kanban</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="tabs"><button class="tab on" id="tGantt">Gantt</button><button class="tab" id="tKanban">Kanban</button><button class="tab" id="tPend">Pendientes</button></div>
+    <label class="btn primary">Cargar Excel<input id="file" type="file" accept=".xlsx,.xls" style="display:none"></label>
+    <button class="ghost" id="print" title="Imprimir (doble carta horizontal)">Imprimir</button>
+    <!-- Botón "Ver ejemplo" OCULTO a pedido (operación real usa datos.xlsx). Para reactivarlo, quitar style="display:none". -->
+    <button class="ghost" id="demo" style="display:none">Ver ejemplo</button>
+  </div>
+</header>
+<div id="wallhead"></div>
+<div id="wrap">
+  <div id="app"><div class="empty">Carga la <b>hoja de captura V3</b> (Localidades · Eventos · Elementos · Parametros) con <b>“Cargar Excel”</b>,<br>o pulsa <b>“Ver ejemplo”</b>. Arriba cambias entre <b>Gantt</b> y <b>Kanban</b>.</div></div>
+</div>
+<script>
+const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PROD:{c:"#C0392B",n:"Carpintería"},
+  PINT:{c:"#7C3AED",n:"Pintura (cuello)"},CARGA:{c:"#0D9488",n:"Carga"},TRANSP:{c:"#0891B2",n:"Transporte"},MONT:{c:"#EA580C",n:"Montaje"},EVT:{c:"#16A34A",n:"Evento"},CIE:{c:"#6B7280",n:"Cierre"},
+  MAT:{c:"#B45309",n:"Material largo plazo"},ESC:{c:"#334155",n:"Escalera (2 pisos)"}};
+const ESTADOS=["Propuesta","Planos","Fabricación","Pintura","En montaje","Evento","Cerrado"];
+const ECOL={"Propuesta":"#94a3b8","Planos":"#2563EB","Fabricación":"#C0392B","Pintura":"#7C3AED","En montaje":"#0D9488","Evento":"#16A34A","Cerrado":"#6B7280"};
+const MS=86400000,DAYW=13,ROWH=30;
+const addD=(d,n)=>new Date(d.getTime()+Math.round(n)*MS);
+const diffD=(a,b)=>Math.round((a-b)/MS);
+const MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const fmt=d=>`${d.getDate()} ${MES[d.getMonth()]}`;
+const _n=new Date();const TODAY=new Date(_n.getFullYear(),_n.getMonth(),_n.getDate());
+let DATA=null,PARAMS=null,collapsed={},VIEW="gantt",showOld=false,WIN=null;const OLD_DAYS=20;
+
+function cap(d,P){const w=d.getDay();return w===0?P.dom:(w===6?P.sab:1);}
+function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=0,g=0;while(acc<D-1e-9&&g<6000){d=addD(d,-1);acc+=cap(d,P);g++;}return d;}
+
+function defaultParams(){return {
+  f:{entrevista:2,cotizacion:3,diseno:5,aprobacion:3,planeacion:2,compra:4,prearmado:2,carga:1,transporte:1,montaje:2,desmontaje:1,retorno:1,acomodo:1},
+  loc:{"CDMX (local)":{ida:0,ret:0},"Puebla":{ida:1,ret:1},"Querétaro":{ida:1,ret:1},"León":{ida:1,ret:1},"Veracruz":{ida:2,ret:2},"Oaxaca":{ida:2,ret:2},"Guadalajara":{ida:2,ret:2},"Monterrey":{ida:2,ret:2},"Chihuahua":{ida:3,ret:3},"Mérida":{ida:3,ret:3}},
+  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,zRed:0.25,zPurple:0.25,cap:3,printCap:1,fabWindow:30,sab:0.5,dom:0};}
+function demoData(){const P=defaultParams();return {params:P,
+  eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,montaje:2,desmontaje:1},
+   {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,montaje:2,desmontaje:1},
+   {evento:"Expo Fire (FM Approvals)",recinto:"Puebla",localidad:"Puebla",inicio:new Date(2026,8,3),dias:3,montaje:3,desmontaje:1}],
+  elementos:[{evento:"Anestesiología (Conexxión)",nombre:"Stand principal",tipo:"Stand",ancho:4,largo:3,dospisos:false,fab:6,estado:"Fabricación"},
+   {evento:"Glaucoma",nombre:"Isla A",tipo:"Stand",ancho:6,largo:3,dospisos:false,fab:8,estado:"Pintura",vidrio:true,acrilico:false,lona:false},
+   {evento:"Glaucoma",nombre:"Isla B",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Planos"},
+   {evento:"Glaucoma",nombre:"Perimetral",tipo:"Stand",ancho:3,largo:3,dospisos:false,fab:4,estado:"Fabricación"},
+   {evento:"Glaucoma",nombre:"Doble altura",tipo:"Stand",ancho:4,largo:5,dospisos:true,fab:12,estado:"Planos",vidrio:false,acrilico:true,lona:false},
+   {evento:"Glaucoma",nombre:"Registro",tipo:"Módulo de registro",ancho:3,largo:3,dospisos:false,fab:3,estado:"Propuesta"},
+   {evento:"Expo Fire (FM Approvals)",nombre:"Stand",tipo:"Stand",ancho:4,largo:5,dospisos:false,fab:10,estado:"Propuesta",vidrio:true,acrilico:false,lona:true}]};}
+
+function toDate(v){if(v instanceof Date)return new Date(v.getFullYear(),v.getMonth(),v.getDate());if(typeof v==="number"){const d=XLSX.SSF.parse_date_code(v);return new Date(d.y,d.m-1,d.d);}const p=new Date(v);return isNaN(p)?null:p;}
+function rows(wb,n){const ws=wb.Sheets[n];return ws?XLSX.utils.sheet_to_json(ws,{defval:""}):[];}
+function gv(r,keys){for(const k of Object.keys(r)){const kk=k.toLowerCase();for(const t of keys)if(kk.includes(t))return r[k];}return "";}
+function yes(v){return String(v).trim().toLowerCase().startsWith("s");}
+function parseWB(wb){
+  const P=defaultParams();
+  const lo=rows(wb,"Localidades"); if(lo.length){P.loc={};lo.forEach(r=>{const c=String(gv(r,["ciudad"])).trim();if(c)P.loc[c]={ida:+gv(r,["ida","transporte"])||0,ret:+gv(r,["retorno"])||0};});}
+  const pr=rows(wb,"Parametros"),fmap={}; pr.forEach(r=>{const f=gv(r,["fase"]),d=gv(r,["duraci"]);if(f&&d!=="")fmap[String(f).trim().toLowerCase()]=+d;});
+  const FK={entrevista:"entrevista",cotizacion:"cotiz",diseno:"diseño",aprobacion:"aprob",planeacion:"planeaci",compra:"compra",prearmado:"pre-armado",carga:"carga",transporte:"transporte",montaje:"montaje",desmontaje:"desmontaje",retorno:"retorno",acomodo:"acomodo"};
+  for(const k in FK){const hit=Object.keys(fmap).find(x=>x.includes(FK[k]));if(hit!=null)P.f[k]=fmap[hit];}
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets["Parametros"]||{},{header:1,defval:""});
+  raw.forEach(row=>row.forEach((c,i)=>{const s=String(c).toLowerCase(),nx=row[i+1];if(nx===""||nx==null)return;
+    if(s.includes("capacidad"))P.cap=+nx; else if(s.includes("carpintería")||s.includes("carpinteria"))P.carpPct=+nx;
+    else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx; else if(s.includes("vidrio"))P.leadVidrio=+nx; else if(s.includes("acrílico")||s.includes("acrilico"))P.leadAcrilico=+nx; else if(s.includes("lona")||s.includes("impresión especial")||s.includes("impresion especial"))P.leadLona=+nx; else if(s.includes("impresi")&&s.includes("día")||s.includes("impresi")&&s.includes("dia"))P.printCap=+nx; else if(s.includes("ventana"))P.fabWindow=+nx;
+    else if(s.includes("sábado")||s.includes("sabado"))P.sab=+nx; else if(s.includes("domingo"))P.dom=+nx;}));
+  const eventos=rows(wb,"Eventos").map(r=>({evento:String(gv(r,["evento"])).trim(),recinto:gv(r,["recinto"]),localidad:String(gv(r,["localidad"])).trim()||"CDMX (local)",
+    inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1})).filter(e=>e.evento&&e.inicio);
+  const elementos=rows(wb,"Elementos").map(r=>({evento:String(gv(r,["evento"])).trim(),nombre:gv(r,["elemento","nombre"]),tipo:gv(r,["tipo"])||"Stand",
+    ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:String(gv(r,["estado"])).trim()||"Propuesta",vidrio:yes(gv(r,["vidrio"])),acrilico:yes(gv(r,["acrílico","acrilico"])),lona:yes(gv(r,["lona","impresión especial","impresion especial"]))})).filter(e=>e.evento&&e.fab>0);
+  return {eventos,elementos,params:P};
+}
+
+function schedule(ev,els,P){
+  const loc=P.loc[ev.localidad]||{ida:0,ret:0}, f=P.f, evStart=ev.inicio;
+  const montS=addD(evStart,-(ev.montaje||f.montaje)), transpStart=addD(montS,-(f.transporte+loc.ida)), fabEnd=addD(transpStart,-f.carga);
+  const pintEnd=workBack(fabEnd,f.prearmado,P);   // fin de pintura = inicio pre-armado (compartido)
+  const N=Math.max(1,Math.round(P.cap));
+  const order=els.map((e,i)=>({e,i})).sort((a,b)=>(b.e.fab-a.e.fab)||(a.i-b.i));  // más grande primero
+  const barMap=new Map();
+  function placeBar(e,endD){
+    const carpDays=e.fab*P.carpPct+P.extraCarp, pintDays=e.fab*(1-P.carpPct);
+    const pE=new Date(endD), pS=workBack(pE,pintDays,P), cE=pS, cS=workBack(cE,carpDays,P);
+    let esc=null,escBy=null;
+    if(e.dospisos){
+      esc={start:workBack(cS,P.leadEsc,P),end:cS};                                  // Gantt: ideal (antes de carpintería, para el armado)
+      const need=workBack(fabEnd,P.matColchon||0,P);
+      escBy={by:workBack(need,P.leadEsc,P),need:need};                              // recordatorio: red de seguridad (a la carga)
+    }
+    const zp=(P.zPurple??0.25);                                                      // el 🖨️ se ancla al CENTRO del bloque morado de la barra
+    const t=cS.getTime()+(pE.getTime()-cS.getTime())*(1-zp/2), pid=new Date(t);
+    const printIdeal=new Date(pid.getFullYear(),pid.getMonth(),pid.getDate());        // día ideal de impresión = centro de la zona morada (pintura)
+    barMap.set(e,{el:e,carp:{start:cS,end:cE},pint:{start:pS,end:pE},esc,escBy,printIdeal});
+    return cS;
+  }
+  let overflow=false, fabFloor=null;
+  if(order.length){
+    // Ventana de fabricación: nadie arranca antes de este piso (= cierre de aprobación). Editable (P.fabWindow, días háb.).
+    const winFloor=workBack(fabEnd, P.fabWindow||30, P);
+    function trialCS(e,endD){const cd=e.fab*P.carpPct+P.extraCarp,pd=e.fab*(1-P.carpPct);return workBack(workBack(new Date(endD),pd,P),cd,P);}
+    // El más grande termina pegado a la carga y SOLO en la recta final (protegido).
+    const bigStart=placeBar(order[0].e, pintEnd);
+    // Los demás (grande→chico): se colocan SECUENCIALES hacia atrás sin encimar mientras quepan en la ventana.
+    // Solo cuando ya no caben en fila se abre un carril nuevo (se enciman, empezando por los chicos, que van al final).
+    let lanes=[bigStart];
+    order.slice(1).forEach(({e})=>{
+      const idxs=lanes.map((v,i)=>i).sort((a,b)=>lanes[b]-lanes[a]);   // carriles por fin más tardío primero (empacar apretado)
+      let best=-1;
+      for(const i of idxs){ if(trialCS(e,lanes[i])>=winFloor){best=i;break;} }   // ¿cabe secuencial en algún carril sin pasar el piso?
+      if(best>=0){ lanes[best]=placeBar(e,lanes[best]); }                        // sí → sin encimar
+      else if(lanes.length<N){ const cS=placeBar(e,bigStart); lanes.push(cS); if(cS<winFloor)overflow=true; } // no → nuevo carril (encima)
+      else { const i=idxs[0]; lanes[i]=placeBar(e,lanes[i]); overflow=true; }     // ni encimando cabe → overflow (banda roja)
+    });
+    fabFloor=winFloor;
+  }
+  const eb=els.map(e=>barMap.get(e));
+  let earliest=pintEnd; eb.forEach(b=>{if(b.carp.start<earliest)earliest=b.carp.start;});
+  const compraEnd=earliest, compraS=workBack(compraEnd,f.compra,P), planS=workBack(compraS,f.planeacion,P),
+    aprS=workBack(planS,f.aprobacion,P), disS=workBack(aprS,f.diseno,P), cotS=workBack(disS,f.cotizacion,P), entS=workBack(cotS,f.entrevista,P);
+  // envelope de fabricación (aprox 40/60 del span para el renglón de evento)
+  const span=(pintEnd-earliest)/MS, cSplit=addD(earliest,span*P.carpPct);
+  const env=[["CD","Entrevista/cotización/diseño",entS,aprS],["HITO","Aprobación",aprS,planS],
+    ["PROD","Planeación",planS,compraS],["PROD","Compra",compraS,earliest],
+    ["PROD","Carpintería (envelope)",earliest,cSplit],["PINT","Pintura (envelope)",cSplit,pintEnd],
+    ["PROD","Pre-armado",pintEnd,fabEnd],["CARGA","Carga",fabEnd,transpStart],["TRANSP","Transporte",transpStart,montS],["MONT","Montaje",montS,evStart]]
+    .map(a=>({cat:a[0],name:a[1],start:a[2],end:a[3]}));
+  const evEnd=addD(evStart,ev.dias),desmEnd=addD(evEnd,ev.desmontaje||f.desmontaje),retEnd=addD(desmEnd,f.retorno+loc.ret),acoEnd=addD(retEnd,f.acomodo);
+  const post=[{cat:"CIE",name:"Desmontaje",start:evEnd,end:desmEnd},{cat:"CIE",name:"Retorno",start:desmEnd,end:retEnd},{cat:"CIE",name:"Acomodo",start:retEnd,end:acoEnd}];
+  let projS=entS;
+  // Materiales de largo plazo: unión de lo que piden los elementos del evento. Se amarran a la carga − colchón.
+  const need=workBack(fabEnd,P.matColchon||0,P);
+  const MATS=[["vidrio","Vidrio templado",P.leadVidrio],["acrilico","Acrílico",P.leadAcrilico],["lona","Lona/impresión especial",P.leadLona]];
+  const materiales=[];
+  MATS.forEach(([key,label,lead])=>{
+    const con=els.filter(e=>e[key]);
+    if(con.length){ const ms=workBack(need,lead||0,P); materiales.push({key,name:label,start:ms,end:need,elementos:con.map(e=>e.nombre)}); if(ms<projS)projS=ms; }
+  });
+  eb.forEach(b=>{if(b.esc&&b.esc.start<projS)projS=b.esc.start;});
+  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS,overflow,fabFloor};
+}
+
+function build(){
+  const evs=DATA.eventos.map(ev=>{const els=DATA.elementos.filter(e=>e.evento===ev.evento);return {ev,els,sc:schedule(ev,els,PARAMS)};});
+  assignPrints(evs,PARAMS);
+  return evs;
+}
+// Agenda impresión a nivel taller: máx P.printCap por día. Si el día ideal está ocupado, danza +1,−1,+2,−2…
+// Prioridad: la de MENOS holgura hacia su carga se queda; las de más margen se mueven. Avisa si cae después de la carga.
+function assignPrints(evs,P){
+  const capP=Math.max(1,Math.round(P.printCap||1));
+  const items=[];
+  evs.forEach(e=>e.sc.eb.forEach(b=>{if(b)items.push({b,ideal:b.printIdeal,carga:e.sc.fabEnd});}));
+  items.sort((x,y)=>(x.carga-x.ideal)-(y.carga-y.ideal));   // menos holgura primero
+  const cnt=new Map(),key=d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(),free=d=>((cnt.get(key(d))||0)<capP);
+  items.forEach(it=>{
+    let day=new Date(it.ideal),moved=false;
+    if(!free(day)){
+      let found=null;
+      for(let step=1;step<=90&&!found;step++){for(const dir of [1,-1]){const c=addD(it.ideal,dir*step);if(free(c)){found=c;break;}}}
+      day=found||new Date(it.ideal); moved=true;
+    }
+    cnt.set(key(day),(cnt.get(key(day))||0)+1);
+    it.b.printDay=day; it.b.printMoved=moved; it.b.printLate=day>it.carga;
+  });
+}
+
+function renderGantt(evs){
+  const P=PARAMS;
+  let min=evs[0].sc.projS,max=evs[0].sc.projEnd;
+  evs.forEach(e=>{if(e.sc.projS<min)min=e.sc.projS;if(e.sc.projEnd>max)max=e.sc.projEnd;});
+  min=addD(min,-3);max=addD(max,3);
+  const total=diffD(max,min)+1,W=total*DAYW,x=d=>diffD(d,min)*DAYW;
+  const carga=new Array(total).fill(0);
+  evs.forEach(e=>e.sc.eb.forEach(b=>{const a=Math.max(0,diffD(b.carp.start,min)),z=Math.min(total-1,diffD(b.pint.end,min)-1);for(let d=a;d<=z;d++)carga[d]+=1;}));
+  const bands=[];let bs=null;for(let d=0;d<total;d++){const hi=carga[d]>P.cap;if(hi&&bs===null)bs=d;if((!hi||d===total-1)&&bs!==null){bands.push([bs,hi?d:d-1]);bs=null;}}
+  let sun="";for(let i=0;i<total;i++){if(addD(min,i).getDay()===0)sun+=`<div class="sun" style="left:${i*DAYW}px;width:${DAYW}px"></div>`;}
+  let rowsL="",rowsB="",y=0;
+  evs.forEach((e,ei)=>{
+    const col=collapsed[ei];
+    const nmat=(e.sc.materiales||[]).length; const mtag=nmat?`<span class="tag tagF">${nmat} material(es)</span>`:"";
+    const n2=e.els.filter(x=>x.dospisos).length,ptag=n2?`<span class="tag tag2p">${n2}×2p</span>`:"";
+    rowsL+=`<div class="rowL evL" onclick="tg(${ei})">${col?"▸":"▾"} <b>${e.ev.evento}</b> <span class="tag">${e.ev.localidad}</span>${mtag}${ptag}</div>`;
+    let b="";
+    e.sc.env.forEach(s=>{const w=Math.max(x(s.end)-x(s.start),s.cat==="HITO"?7:3);b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${w}px;background:${CAT[s.cat].c}"></div>`;});
+    b+=`<div class="bar" title="Evento" style="left:${x(e.sc.evStart)}px;width:${Math.max(diffD(e.sc.evEnd,e.sc.evStart)*DAYW,4)}px;background:${CAT.EVT.c}"></div>`;
+    e.sc.post.forEach(s=>{b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${Math.max(x(s.end)-x(s.start)-1,3)}px;background:${CAT.CIE.c};opacity:.8"></div>`;});
+    (e.sc.materiales||[]).forEach(m=>{b+=`<div class="mbar bar" title="Pedir ${m.name} — para: ${m.elementos.join(", ")}" style="left:${x(m.start)}px;width:${Math.max(x(m.end)-x(m.start),4)}px"></div>`;});
+    rowsB+=`<div class="rowB">${b}</div>`;y+=ROWH;
+    if(!col)e.sc.eb.forEach(b2=>{const el=b2.el;
+      const dp=el.dospisos?' <span class="pill" style="background:#DBEAFE;color:#1e40af">2p</span>':'';
+      rowsL+=`<div class="rowL stL">&nbsp;&nbsp;▸ ${el.nombre} <span class="pill">${el.tipo}</span> <span class="pill">${el.fab}d</span>${dp}</div>`;
+      let sb="";
+      if(b2.esc)sb+=`<div class="ebar bar" title="Escalera (${P.leadEsc} días háb.)" style="left:${x(b2.esc.start)}px;width:${Math.max(x(b2.esc.end)-x(b2.esc.start),3)}px"></div>`;
+      // Una sola barra de fabricación con 3 zonas: rojo (solo carpintería) → cuadros (traslape) → morado (solo pintura)
+      const bx=x(b2.carp.start), bw=Math.max(x(b2.pint.end)-x(b2.carp.start),3);
+      const wR=Math.round(bw*(PARAMS.zRed??0.25)), wP=Math.round(bw*(PARAMS.zPurple??0.25)), wM=Math.max(bw-wR-wP,0);
+      sb+=`<div class="bar sbar" title="Fabricación ${el.nombre}: ${fmt(b2.carp.start)}–${fmt(b2.pint.end)} (${el.fab} días). Rojo=solo carpintería · cuadros=carpintería+pintura · morado=solo pintura/emplaye" style="left:${bx}px;width:${bw}px;padding:0;background:none;overflow:hidden">`+
+            `<span style="position:absolute;left:0;top:0;bottom:0;width:${wR}px;background:${CAT.PROD.c}"></span>`+
+            `<span class="zmix" style="position:absolute;left:${wR}px;top:0;bottom:0;width:${wM}px"></span>`+
+            `<span style="position:absolute;left:${wR+wM}px;top:0;bottom:0;width:${wP}px;background:${CAT.PINT.c}"></span>`+
+          `</div>`;
+      sb+=`<span class="prn" title="Impresión ${el.nombre} · ${fmt(b2.printDay)}${b2.printMoved?' (reacomodada para no saturar impresión)':''}${b2.printLate?' — ¡DESPUÉS DE LA CARGA!':''}" style="left:${x(b2.printDay)+2}px;${b2.printMoved?'opacity:.5;':''}${b2.printLate?'color:#b91c1c;':''}">🖨️</span>`;
+      rowsB+=`<div class="rowB">${sb}</div>`;y+=ROWH;
+    });
+  });
+  let months="";let d=new Date(min);d.setDate(1);
+  while(d<=max){months+=`<div class="mtick" style="left:${x(d)}px">${MES[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div>`;d=new Date(d.getFullYear(),d.getMonth()+1,1);}
+  const bandsH=bands.map(([a,z])=>`<div class="band" style="left:${a*DAYW}px;width:${(z-a+1)*DAYW}px"></div>`).join("");
+  let cargaH="";for(let i=0;i<total;i++){if(carga[i]>0){const over=carga[i]>P.cap;cargaH+=`<div class="cell" style="left:${i*DAYW}px;width:${DAYW}px;color:${over?'#fff':'#7c2d12'};background:${over?'#C0392B':(carga[i]>=P.cap?'#F59E0B':'#FDE68A')}">${carga[i]}</div>`;}}
+  const peak=Math.max(...carga,0);
+  // Fila de impresión: 🖨️ por día agendado (respeta 1/día); cuenta y detecta tardías
+  const impr=new Array(total).fill(0); let imprLate=0;
+  evs.forEach(e=>e.sc.eb.forEach(b=>{if(b&&b.printDay){const i=diffD(b.printDay,min);if(i>=0&&i<total)impr[i]++; if(b.printLate)imprLate++;}}));
+  let imprH="";for(let i=0;i<total;i++){if(impr[i]>0){const ov=impr[i]>(P.printCap||1);imprH+=`<div class="cell" style="left:${i*DAYW}px;width:${DAYW}px;color:${ov?'#fff':'#5b21b6'};background:${ov?'#7C3AED':'#EDE9FE'}">${impr[i]>1?impr[i]:'🖨️'}</div>`;}}
+  const leg=Object.values(CAT).map(v=>`<span class="lg"><span class="sw" style="background:${v.c}"></span>${v.n}</span>`).join("")+`<span class="lg"><span class="sw" style="background:rgba(192,0,0,.2);border:1px solid #f00"></span>Carga alta</span><span class="lg">🖨️ impresión</span>`;
+  return `<div class="legend">${leg}</div>
+   <div class="board"><div class="labels"><div class="axis" style="display:flex;align-items:flex-end;padding:0 8px 3px"><span class="sub">Evento / Elemento</span></div>${rowsL}<div class="rowL" style="background:#fff;font-weight:700;color:#C0392B">Carga taller (# elementos)</div><div class="rowL" style="background:#fff;font-weight:700;color:#7C3AED">Impresión (${P.printCap||1}/día)</div></div>
+     <div class="tl"><div style="width:${W}px;position:relative"><div class="axis">${months}</div>
+       <div class="body" style="height:${y}px;position:relative">${sun}${bandsH}<div class="today" style="left:${x(TODAY)}px"></div>${rowsB}</div>
+       <div class="cargaRow">${cargaH}</div><div class="cargaRow">${imprH}</div></div></div></div>
+   ${imprLate?`<div class="alert"><b>${imprLate} impresión(es) sin hueco antes de la carga</b> — no hay día libre de impresión antes de cargar ese stand. Adelantar el gráfico o liberar capacidad de impresión.</div>`:""}
+   ${(()=>{const ov=evs.filter(e=>e.sc.overflow).map(e=>e.ev.evento);return ov.length?`<div class="alert"><b>${ov.length} evento(s) no caben ni encimando dentro de la ventana de fabricación (${P.fabWindow||30} días háb.):</b> ${ov.join(", ")}. Hay que arrancar antes de lo permitido, subir capacidad, o adelantar la aprobación.</div>`:"";})()}
+   ${peak>P.cap?`<div class="alert"><b>Carga alta:</b> pico de ${peak} elementos en fabricación contra capacidad ${P.cap}. Adelantar fabricación, preparador de corte o desfasar turnos.</div>`:""}
+   <div class="params"><h3>Ajusta las longitudes (recalcula) <span class="pill">mueve cualquier fase</span></h3><div class="grid" id="pg"></div>
+     <div class="note">Fabricación = DÍAS por elemento (del experto) → ${Math.round(P.carpPct*100)}% carpintería / ${Math.round((1-P.carpPct)*100)}% pintura, +${P.extraCarp} día a carpintería. Días hábiles: sáb ${P.sab}, dom ${P.dom}.</div></div>`;
+}
+
+function renderKanban(evs){
+  const cols=ESTADOS.map(st=>{
+    const cards=[];
+    evs.forEach(e=>e.els.filter(x=>(x.estado||"Propuesta")===st).forEach(x=>cards.push({ev:e.ev.evento,el:x})));
+    const inner=cards.map(c=>`<div class="kcard" style="border-left-color:${ECOL[st]}"><b>${c.el.nombre}</b><div class="m">${c.ev}</div><div class="m">${c.el.tipo} · ${c.el.fab}d${c.el.dospisos?' · 2 pisos':''}</div></div>`).join("")||`<div class="m" style="color:#aaa;padding:4px">—</div>`;
+    return `<div class="kcol"><div class="kh"><span>${st}</span><span class="kcount">${cards.length}</span></div>${inner}</div>`;
+  }).join("");
+  const tot=evs.reduce((s,e)=>s+e.els.length,0);
+  return `<div class="legend"><span class="lg">Tablero por estado · ${tot} elementos · el estado se captura en el Excel (columna Estado)</span></div><div class="kb">${cols}</div>`;
+}
+
+const ESTIDX={"Propuesta":0,"Planos":1,"Fabricación":2,"Pintura":3,"En montaje":4,"Evento":5,"Cerrado":6};
+let HORIZON=3;
+function inH(a,b,H0,H1){return b>H0 && a<=H1;}   // ventana [a,b] cruza [H0,H1]
+function badge(kind){return {ret:'<span class="bdg b-ret">Atrasado</span>',ok:'<span class="bdg b-ok">En tiempo</span>',soon:'<span class="bdg b-soon">Por empezar</span>',go:'<span class="bdg b-go">Acción</span>'}[kind];}
+function renderPendientes(evs){
+  const H0=WIN?new Date(WIN.start):new Date(TODAY), H1=WIN?new Date(WIN.end):addD(TODAY,HORIZON);
+  // ---- sección fija POR PEDIR (todos los pedidos, con fecha límite y semáforo) ----
+  const pedir=[];
+  evs.forEach(e=>{const sc=e.sc,evn=e.ev.evento;
+    (sc.materiales||[]).forEach(m=>pedir.push({what:`Pedir ${m.name}`,ev:evn,by:m.start,need:m.end,para:m.elementos.join(", ")}));
+    sc.eb.forEach(b=>{if(b.escBy)pedir.push({what:`Escalera — ${b.el.nombre}`,ev:evn,by:b.escBy.by,need:b.escBy.need});});
+  });
+  function sem(by){const d=diffD(by,TODAY); if(d<0)return["ret","Pedir ya"]; if(d<=5)return["soon","Pronto"]; return["ok","Con tiempo"];}
+  pedir.sort((a,b)=>a.by-b.by);
+  let pedirHTML=`<div class="parea"><div class="pah" style="background:#0f766e"><span>🛒 Por pedir — materiales de largo plazo y escaleras</span><span>${pedir.length}</span></div>`;
+  pedirHTML+= pedir.length? pedir.map(p=>{const [k,txt]=sem(p.by);return `<div class="pitem"><div><span class="who">${p.what}</span><div class="mt">${p.ev} · límite para pedir: <b>${fmt(p.by)}</b> · necesario: ${fmt(p.need)}${p.para?" · para: "+p.para:""}</div></div><span class="bdg b-${k}">${txt}</span></div>`;}).join("") : `<div class="pempty">— sin pedidos de largo plazo —</div>`;
+  pedirHTML+=`</div>`;
+  const pedVenc=pedir.filter(p=>diffD(p.by,TODAY)<0).length;
+  // ---- áreas del día (por horizonte) ----
+  const AREAS=[["Carpintería","#C0392B"],["Pintura","#7C3AED"],["Pre-armado y carga","#0D9488"],["Montaje","#16A34A"],["Cierre (desmontaje/retorno)","#6B7280"]];
+  const bucket={}; AREAS.forEach(([a])=>bucket[a]=[]);
+  const fD=d=>fmt(d);
+  evs.forEach(e=>{
+    const sc=e.sc, evn=e.ev.evento;
+    sc.eb.forEach(b=>{
+      const est=ESTIDX[b.el.estado]??0;
+      if(inH(b.carp.start,b.carp.end,H0,H1)){const late=TODAY>=b.carp.start && est<2;
+        bucket["Carpintería"].push({who:b.el.nombre,mt:`${evn} · ${fD(b.carp.start)}–${fD(b.carp.end)} · estado: ${b.el.estado}`,b:late?"ret":(TODAY<b.carp.start?"soon":"ok")});}
+      if(inH(b.pint.start,b.pint.end,H0,H1)){const late=TODAY>=b.pint.start && est<3;
+        bucket["Pintura"].push({who:b.el.nombre,mt:`${evn} · ${fD(b.pint.start)}–${fD(b.pint.end)} · estado: ${b.el.estado}`,b:late?"ret":(TODAY<b.pint.start?"soon":"ok")});}
+    });
+    if(inH(sc.pintEnd,sc.fabEnd,H0,H1)) bucket["Pre-armado y carga"].push({who:"Pre-armado y verificación",mt:`${evn} · ${fD(sc.pintEnd)}–${fD(sc.fabEnd)}`,b:"go"});
+    if(inH(sc.fabEnd,sc.transpStart,H0,H1)) bucket["Pre-armado y carga"].push({who:"Carga de camión",mt:`${evn} · ${fD(sc.fabEnd)}`,b:"go"});
+    if(inH(sc.montS,sc.evStart,H0,H1)) bucket["Montaje"].push({who:"Montaje en sitio",mt:`${evn} · ${fD(sc.montS)}–${fD(sc.evStart)} · ${e.ev.localidad}`,b:"go"});
+    sc.post.forEach(p=>{if(inH(p.start,p.end,H0,H1))bucket["Cierre (desmontaje/retorno)"].push({who:p.name,mt:`${evn} · ${fD(p.start)}–${fD(p.end)}`,b:"go"});});
+  });
+  const rank={ret:0,go:1,soon:2,ok:3};
+  let html=`<div class="phz"><b>Pendientes</b> — ${WIN?`semana del ${fmt(WIN.start)} al ${fmt(WIN.end)}`:`desde hoy (${fmt(TODAY)}) por los próximos`}
+    ${WIN?"":`<select onchange="setHz(this.value)">
+      <option value="0"${HORIZON===0?" selected":""}>solo hoy</option>
+      <option value="3"${HORIZON===3?" selected":""}>3 días</option>
+      <option value="7"${HORIZON===7?" selected":""}>7 días</option></select>`}
+    <span class="mt" style="color:#777">Atrasado = el plan ya pide esa fase y el Estado capturado va más atrás.</span></div>`;
+  if(pedVenc)html+=`<div class="alert"><b>${pedVenc} pedido(s) con fecha límite vencida</b> — riesgo de que el material/escalera no llegue a tiempo.</div>`;
+  html+=pedirHTML;
+  let anyRet=0;
+  AREAS.forEach(([a,c])=>{
+    const items=bucket[a].sort((x,y)=>rank[x.b]-rank[y.b]);
+    anyRet+=items.filter(i=>i.b==="ret").length;
+    const rows=items.length?items.map(i=>`<div class="pitem"><div><span class="who">${i.who}</span><div class="mt">${i.mt}</div></div>${badge(i.b)}</div>`).join(""):`<div class="pempty">— sin pendientes en la ventana —</div>`;
+    const slug=a.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]+/g,"-").replace(/^-|-$/g,"");
+    html+=`<div class="parea parea-${slug}"><div class="pah" style="background:${c}"><span>${a}</span><span>${items.length}</span></div>${rows}</div>`;
+  });
+  return (anyRet?`<div class="alert"><b>${anyRet} elemento(s) atrasado(s)</b> — el plan pide una fase más adelante que el estado capturado.</div>`:"")+html;
+}
+window.setHz=v=>{HORIZON=+v;render();};
+
+function render(){
+  const app=document.getElementById("app");
+  const allEvs=build();
+  if(!allEvs.length){app.innerHTML='<div class="empty">No encontré eventos/elementos. Revisa las hojas.</div>';return;}
+  const viejos=allEvs.filter(e=>diffD(TODAY,e.sc.projEnd)>OLD_DAYS);
+  const evs=showOld?allEvs:allEvs.filter(e=>diffD(TODAY,e.sc.projEnd)<=OLD_DAYS);
+  let toggle="";
+  if(viejos.length){
+    toggle=`<div class="phz"><label style="cursor:pointer;user-select:none"><input type="checkbox" ${showOld?"checked":""} onchange="setShowOld(this.checked)" style="vertical-align:middle"> Ver eventos antiguos <span class="pill">${viejos.length} cerrados hace +${OLD_DAYS} días</span></label></div>`;
+  }
+  if(!evs.length){app.innerHTML=toggle+'<div class="empty">Todos los eventos cerraron hace más de '+OLD_DAYS+' días. Activa <b>“Ver eventos antiguos”</b> para mostrarlos.</div>';return;}
+  const sat = TODAY.getDay()===6 ? `<div class="satbar"><b>📢 Hoy es sábado: imprime la lista de CARPINTERÍA de la próxima semana para bajar a planta.</b><button onclick="printCarpentry()">Imprimir carpintería</button></div>` : "";
+  const body = VIEW==="gantt"?renderGantt(evs):(VIEW==="kanban"?renderKanban(evs):renderPendientes(evs));
+  app.innerHTML = sat + toggle + body;
+  if(VIEW==="gantt"){
+    const P=PARAMS,pg=document.getElementById("pg");
+    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["prearmado","Pre-armado"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
+    let h=""; FN.forEach(([k,n])=>h+=`<div class="fld"><span>${n}</span><input type="number" min="0" step="0.5" value="${P.f[k]}" onchange="sf('${k}',this.value)"></div>`);
+    h+=`<div class="fld"><span>Capacidad (elementos)</span><input type="number" min="1" value="${P.cap}" onchange="sc('cap',this.value)"></div>`;
+    h+=`<div class="fld"><span>Impresión por día</span><input type="number" min="1" value="${P.printCap}" onchange="sc('printCap',this.value)"></div>`;
+    h+=`<div class="fld"><span>Ventana fabricación (háb.)</span><input type="number" min="5" value="${P.fabWindow}" onchange="sc('fabWindow',this.value)"></div>`;
+    h+=`<div class="fld"><span>% carpintería</span><input type="number" min="0" max="1" step="0.05" value="${P.carpPct}" onchange="sc('carpPct',this.value)"></div>`;
+    h+=`<div class="fld"><span>Zona roja (solo carp.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zRed}" onchange="sc('zRed',this.value)"></div>`;
+    h+=`<div class="fld"><span>Zona morada (solo pint.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zPurple}" onchange="sc('zPurple',this.value)"></div>`;
+    h+=`<div class="fld"><span>Días extra carpintería</span><input type="number" min="0" step="0.5" value="${P.extraCarp}" onchange="sc('extraCarp',this.value)"></div>`;
+    h+=`<div class="fld"><span>Lead escalera (háb.)</span><input type="number" min="0" value="${P.leadEsc}" onchange="sc('leadEsc',this.value)"></div>`;
+    h+=`<div class="fld"><span>Sábado (turno)</span><input type="number" min="0" max="1" step="0.1" value="${P.sab}" onchange="sc('sab',this.value)"></div>`;
+    pg.innerHTML=h;
+  }
+}
+window.setShowOld=v=>{showOld=v;render();};
+window.tg=i=>{collapsed[i]=!collapsed[i];render();};
+window.sf=(k,v)=>{PARAMS.f[k]=+v||0;render();};
+window.sc=(k,v)=>{PARAMS[k]=+v||0;render();};
+function setView(v){VIEW=v;document.getElementById("tGantt").classList.toggle("on",v==="gantt");document.getElementById("tKanban").classList.toggle("on",v==="kanban");document.getElementById("tPend").classList.toggle("on",v==="pend");if(DATA)render();}
+document.getElementById("tGantt").onclick=()=>setView("gantt");
+document.getElementById("tKanban").onclick=()=>setView("kanban");
+document.getElementById("tPend").onclick=()=>setView("pend");
+document.getElementById("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:"array",cellDates:true});DATA=parseWB(wb);PARAMS=DATA.params;collapsed={};render();}
+  catch(err){document.getElementById("app").innerHTML='<div class="empty">No pude leer el archivo. Verifica hojas <b>Localidades, Eventos, Elementos, Parametros</b>.<br><span class="note">'+err+'</span></div>';}};
+  r.readAsArrayBuffer(f);});
+document.getElementById("demo").addEventListener("click",()=>{DATA=demoData();PARAMS=DATA.params;collapsed={};render();});
+function fmtFull(d){const D=String(d.getDate()).padStart(2,"0"),M=String(d.getMonth()+1).padStart(2,"0");return `${D}/${M}/${d.getFullYear()}`;}
+function nextMonSat(){const day=TODAY.getDay();const toMon=((1-day+7)%7)||7;const lun=addD(TODAY,toMon);return {start:lun,end:addD(lun,5)};}
+function setWall(title,sub){const w=document.getElementById("wallhead");w.innerHTML=`<div class="wt">${title}</div><div class="ws">${sub}</div>`;}
+function setPage(v){document.getElementById("printPage").textContent = v==="pend" ? "@page { size: letter portrait; margin: 10mm; }" : "@page { size: 17in 11in; margin: 8mm; }";}
+document.getElementById("print").addEventListener("click",()=>{
+  const t = VIEW==="gantt"?"Pipeline — Gantt":(VIEW==="kanban"?"Pipeline — Tablero":"Pipeline — Pendientes");
+  setWall(t, `Impreso: ${fmtFull(TODAY)}`);
+  setPage(VIEW);
+  window.print();
+});
+window.printCarpentry=function(){
+  const wk=nextMonSat(); WIN=wk; VIEW="pend";
+  document.getElementById("tGantt").classList.remove("on");document.getElementById("tKanban").classList.remove("on");document.getElementById("tPend").classList.add("on");
+  render();
+  document.body.classList.add("printcarp");
+  setWall("CARPINTERÍA — para planta", `Semana del ${fmtFull(wk.start)} al ${fmtFull(wk.end)} · Impreso: ${fmtFull(TODAY)}`);
+  setPage("pend");
+  const cleanup=()=>{document.body.classList.remove("printcarp");WIN=null;render();window.removeEventListener("afterprint",cleanup);};
+  window.addEventListener("afterprint",cleanup);
+  window.print();
+  setTimeout(cleanup,1500); // respaldo por si afterprint no dispara
+};
+// Carga automática del Excel publicado en el repo (datos.xlsx). Si no existe, queda el estado inicial.
+async function autoLoad(keepState){
+  try{
+    const res=await fetch("datos.xlsx?t="+Date.now(),{cache:"no-store"});
+    if(!res.ok) return;
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    DATA=parseWB(wb); PARAMS=DATA.params;
+    if(!keepState) collapsed={};   // en refresco automático se conserva lo expandido y la vista
+    render();
+  }catch(e){ /* sin datos o red intermitente: se conserva lo que ya se ve */ }
+}
+autoLoad();
+// Pantalla fija en oficina: refresca datos cada 20 min conservando la vista actual.
+setInterval(()=>autoLoad(true), 20*60*1000);
+</script>
+</body>
+</html>
