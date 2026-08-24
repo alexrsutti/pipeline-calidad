@@ -117,8 +117,8 @@
   <div id="app"><div class="empty">Carga la <b>hoja de captura V3</b> (Localidades · Eventos · Elementos · Parametros) con <b>“Cargar Excel”</b>,<br>o pulsa <b>“Ver ejemplo”</b>. Arriba cambias entre <b>Gantt</b> y <b>Kanban</b>.</div></div>
 </div>
 <script>
-const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PROD:{c:"#C0392B",n:"Carpintería"},
-  PINT:{c:"#7C3AED",n:"Pintura (cuello)"},LOG:{c:"#0D9488",n:"Logística"},EVT:{c:"#16A34A",n:"Evento"},CIE:{c:"#6B7280",n:"Cierre"},
+const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PREP:{c:"#6366F1",n:"Planeación y compra"},PROD:{c:"#C0392B",n:"Carpintería"},
+  PINT:{c:"#7C3AED",n:"Pintura (cuello)"},CARGA:{c:"#0D9488",n:"Carga"},TRANSP:{c:"#0891B2",n:"Transporte"},MONT:{c:"#EA580C",n:"Montaje"},EVT:{c:"#16A34A",n:"Evento"},DESM:{c:"#F59E0B",n:"Desmontaje"},REGA:{c:"#14B8A6",n:"Regreso a almacén"},
   MAT:{c:"#B45309",n:"Material largo plazo"},ESC:{c:"#334155",n:"Escalera (2 pisos)"}};
 const ESTADOS=["Propuesta","Planos","Fabricación","Pintura","En montaje","Evento","Cerrado"];
 const ECOL={"Propuesta":"#94a3b8","Planos":"#2563EB","Fabricación":"#C0392B","Pintura":"#7C3AED","En montaje":"#0D9488","Evento":"#16A34A","Cerrado":"#6B7280"};
@@ -134,9 +134,9 @@ function cap(d,P){const w=d.getDay();return w===0?P.dom:(w===6?P.sab:1);}
 function workBack(end,D,P){if(D<=0)return new Date(end);let d=new Date(end),acc=0,g=0;while(acc<D-1e-9&&g<6000){d=addD(d,-1);acc+=cap(d,P);g++;}return d;}
 
 function defaultParams(){return {
-  f:{entrevista:2,cotizacion:3,diseno:5,aprobacion:3,planeacion:2,compra:4,prearmado:2,carga:1,transporte:1,montaje:2,desmontaje:1,retorno:1,acomodo:1},
+  f:{entrevista:2,cotizacion:3,diseno:5,aprobacion:3,planeacion:2,compra:4,carga:1,transporte:1,montaje:2,desmontaje:1,retorno:1,acomodo:1},
   loc:{"CDMX (local)":{ida:0,ret:0},"Puebla":{ida:1,ret:1},"Querétaro":{ida:1,ret:1},"León":{ida:1,ret:1},"Veracruz":{ida:2,ret:2},"Oaxaca":{ida:2,ret:2},"Guadalajara":{ida:2,ret:2},"Monterrey":{ida:2,ret:2},"Chihuahua":{ida:3,ret:3},"Mérida":{ida:3,ret:3}},
-  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,zRed:0.25,zPurple:0.25,cap:3,sab:0.5,dom:0};}
+  carpPct:0.4,extraCarp:1,leadEsc:7,matColchon:3,leadVidrio:7,leadAcrilico:3,leadLona:4,zRed:0.25,zPurple:0.25,cap:3,printCap:1,fabWindow:30,sab:0.5,dom:0};}
 function demoData(){const P=defaultParams();return {params:P,
   eventos:[{evento:"Anestesiología (Conexxión)",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,22),dias:3,montaje:2,desmontaje:1},
    {evento:"Glaucoma",recinto:"WTC",localidad:"CDMX (local)",inicio:new Date(2026,7,27),dias:3,montaje:2,desmontaje:1},
@@ -157,12 +157,12 @@ function parseWB(wb){
   const P=defaultParams();
   const lo=rows(wb,"Localidades"); if(lo.length){P.loc={};lo.forEach(r=>{const c=String(gv(r,["ciudad"])).trim();if(c)P.loc[c]={ida:+gv(r,["ida","transporte"])||0,ret:+gv(r,["retorno"])||0};});}
   const pr=rows(wb,"Parametros"),fmap={}; pr.forEach(r=>{const f=gv(r,["fase"]),d=gv(r,["duraci"]);if(f&&d!=="")fmap[String(f).trim().toLowerCase()]=+d;});
-  const FK={entrevista:"entrevista",cotizacion:"cotiz",diseno:"diseño",aprobacion:"aprob",planeacion:"planeaci",compra:"compra",prearmado:"pre-armado",carga:"carga",transporte:"transporte",montaje:"montaje",desmontaje:"desmontaje",retorno:"retorno",acomodo:"acomodo"};
+  const FK={entrevista:"entrevista",cotizacion:"cotiz",diseno:"diseño",aprobacion:"aprob",planeacion:"planeaci",compra:"compra",carga:"carga",transporte:"transporte",montaje:"montaje",desmontaje:"desmontaje",retorno:"retorno",acomodo:"acomodo"};
   for(const k in FK){const hit=Object.keys(fmap).find(x=>x.includes(FK[k]));if(hit!=null)P.f[k]=fmap[hit];}
   const raw=XLSX.utils.sheet_to_json(wb.Sheets["Parametros"]||{},{header:1,defval:""});
   raw.forEach(row=>row.forEach((c,i)=>{const s=String(c).toLowerCase(),nx=row[i+1];if(nx===""||nx==null)return;
     if(s.includes("capacidad"))P.cap=+nx; else if(s.includes("carpintería")||s.includes("carpinteria"))P.carpPct=+nx;
-    else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx; else if(s.includes("vidrio"))P.leadVidrio=+nx; else if(s.includes("acrílico")||s.includes("acrilico"))P.leadAcrilico=+nx; else if(s.includes("lona")||s.includes("impresión especial")||s.includes("impresion especial"))P.leadLona=+nx;
+    else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx; else if(s.includes("vidrio"))P.leadVidrio=+nx; else if(s.includes("acrílico")||s.includes("acrilico"))P.leadAcrilico=+nx; else if(s.includes("lona")||s.includes("impresión especial")||s.includes("impresion especial"))P.leadLona=+nx; else if(s.includes("impresi")&&s.includes("día")||s.includes("impresi")&&s.includes("dia"))P.printCap=+nx; else if(s.includes("ventana"))P.fabWindow=+nx;
     else if(s.includes("sábado")||s.includes("sabado"))P.sab=+nx; else if(s.includes("domingo"))P.dom=+nx;}));
   const eventos=rows(wb,"Eventos").map(r=>({evento:String(gv(r,["evento"])).trim(),recinto:gv(r,["recinto"]),localidad:String(gv(r,["localidad"])).trim()||"CDMX (local)",
     inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1})).filter(e=>e.evento&&e.inicio);
@@ -174,23 +174,45 @@ function parseWB(wb){
 function schedule(ev,els,P){
   const loc=P.loc[ev.localidad]||{ida:0,ret:0}, f=P.f, evStart=ev.inicio;
   const montS=addD(evStart,-(ev.montaje||f.montaje)), transpStart=addD(montS,-(f.transporte+loc.ida)), fabEnd=addD(transpStart,-f.carga);
-  const pintEnd=workBack(fabEnd,f.prearmado,P);   // fin de pintura = inicio pre-armado (compartido)
-  const N=Math.max(1,Math.round(P.cap)); const lanes=new Array(N).fill(pintEnd);
-  const order=els.map((e,i)=>({e,i})).sort((a,b)=>(b.e.fab-a.e.fab)||(a.i-b.i));  // el más grande TERMINA pegado a la carga (se fabrica al final, sale de inmediato)
+  const pintEnd=new Date(fabEnd);   // sin pre-armado: la pintura termina pegada a la carga
+  const N=Math.max(1,Math.round(P.cap));
+  const order=els.map((e,i)=>({e,i})).sort((a,b)=>(b.e.fab-a.e.fab)||(a.i-b.i));  // más grande primero
   const barMap=new Map();
-  order.forEach(({e})=>{
+  function placeBar(e,endD){
     const carpDays=e.fab*P.carpPct+P.extraCarp, pintDays=e.fab*(1-P.carpPct);
-    let li=0; for(let k=1;k<N;k++) if(lanes[k]>lanes[li]) li=k;   // carril que se libera más tarde
-    const pE=new Date(lanes[li]), pS=workBack(pE,pintDays,P), cE=pS, cS=workBack(cE,carpDays,P);
-    lanes[li]=cS;                                                // el carril queda ocupado hasta aquí
+    const pE=new Date(endD), pS=workBack(pE,pintDays,P), cE=pS, cS=workBack(cE,carpDays,P);
     let esc=null,escBy=null;
     if(e.dospisos){
       esc={start:workBack(cS,P.leadEsc,P),end:cS};                                  // Gantt: ideal (antes de carpintería, para el armado)
       const need=workBack(fabEnd,P.matColchon||0,P);
       escBy={by:workBack(need,P.leadEsc,P),need:need};                              // recordatorio: red de seguridad (a la carga)
     }
-    barMap.set(e,{el:e,carp:{start:cS,end:cE},pint:{start:pS,end:pE},esc,escBy,lane:li});
-  });
+    const zp=(P.zPurple??0.25);                                                      // el 🖨️ se ancla al CENTRO del bloque morado de la barra
+    const t=cS.getTime()+(pE.getTime()-cS.getTime())*(1-zp/2), pid=new Date(t);
+    const printIdeal=new Date(pid.getFullYear(),pid.getMonth(),pid.getDate());        // día ideal de impresión = centro de la zona morada (pintura)
+    barMap.set(e,{el:e,carp:{start:cS,end:cE},pint:{start:pS,end:pE},esc,escBy,printIdeal});
+    return cS;
+  }
+  let overflow=false, fabFloor=null;
+  if(order.length){
+    // Ventana de fabricación: nadie arranca antes de este piso (= cierre de aprobación). Editable (P.fabWindow, días háb.).
+    const winFloor=workBack(fabEnd, P.fabWindow||30, P);
+    function trialCS(e,endD){const cd=e.fab*P.carpPct+P.extraCarp,pd=e.fab*(1-P.carpPct);return workBack(workBack(new Date(endD),pd,P),cd,P);}
+    // El más grande termina pegado a la carga y SOLO en la recta final (protegido).
+    const bigStart=placeBar(order[0].e, pintEnd);
+    // Los demás (grande→chico): se colocan SECUENCIALES hacia atrás sin encimar mientras quepan en la ventana.
+    // Solo cuando ya no caben en fila se abre un carril nuevo (se enciman, empezando por los chicos, que van al final).
+    let lanes=[bigStart];
+    order.slice(1).forEach(({e})=>{
+      const idxs=lanes.map((v,i)=>i).sort((a,b)=>lanes[b]-lanes[a]);   // carriles por fin más tardío primero (empacar apretado)
+      let best=-1;
+      for(const i of idxs){ if(trialCS(e,lanes[i])>=winFloor){best=i;break;} }   // ¿cabe secuencial en algún carril sin pasar el piso?
+      if(best>=0){ lanes[best]=placeBar(e,lanes[best]); }                        // sí → sin encimar
+      else if(lanes.length<N){ const cS=placeBar(e,bigStart); lanes.push(cS); if(cS<winFloor)overflow=true; } // no → nuevo carril (encima)
+      else { const i=idxs[0]; lanes[i]=placeBar(e,lanes[i]); overflow=true; }     // ni encimando cabe → overflow (banda roja)
+    });
+    fabFloor=winFloor;
+  }
   const eb=els.map(e=>barMap.get(e));
   let earliest=pintEnd; eb.forEach(b=>{if(b.carp.start<earliest)earliest=b.carp.start;});
   const compraEnd=earliest, compraS=workBack(compraEnd,f.compra,P), planS=workBack(compraS,f.planeacion,P),
@@ -198,12 +220,12 @@ function schedule(ev,els,P){
   // envelope de fabricación (aprox 40/60 del span para el renglón de evento)
   const span=(pintEnd-earliest)/MS, cSplit=addD(earliest,span*P.carpPct);
   const env=[["CD","Entrevista/cotización/diseño",entS,aprS],["HITO","Aprobación",aprS,planS],
-    ["PROD","Planeación",planS,compraS],["PROD","Compra",compraS,earliest],
+    ["PREP","Planeación y compra",planS,earliest],
     ["PROD","Carpintería (envelope)",earliest,cSplit],["PINT","Pintura (envelope)",cSplit,pintEnd],
-    ["PROD","Pre-armado",pintEnd,fabEnd],["LOG","Carga",fabEnd,transpStart],["LOG","Transporte",transpStart,montS],["LOG","Montaje",montS,evStart]]
+    ["CARGA","Carga",fabEnd,transpStart],["TRANSP","Transporte",transpStart,montS],["MONT","Montaje",montS,evStart]]
     .map(a=>({cat:a[0],name:a[1],start:a[2],end:a[3]}));
   const evEnd=addD(evStart,ev.dias),desmEnd=addD(evEnd,ev.desmontaje||f.desmontaje),retEnd=addD(desmEnd,f.retorno+loc.ret),acoEnd=addD(retEnd,f.acomodo);
-  const post=[{cat:"CIE",name:"Desmontaje",start:evEnd,end:desmEnd},{cat:"CIE",name:"Retorno",start:desmEnd,end:retEnd},{cat:"CIE",name:"Acomodo",start:retEnd,end:acoEnd}];
+  const post=[{cat:"DESM",name:"Desmontaje",start:evEnd,end:desmEnd},{cat:"TRANSP",name:"Retorno (transporte)",start:desmEnd,end:retEnd},{cat:"REGA",name:"Regreso a almacén",start:retEnd,end:acoEnd}];
   let projS=entS;
   // Materiales de largo plazo: unión de lo que piden los elementos del evento. Se amarran a la carga − colchón.
   const need=workBack(fabEnd,P.matColchon||0,P);
@@ -214,10 +236,33 @@ function schedule(ev,els,P){
     if(con.length){ const ms=workBack(need,lead||0,P); materiales.push({key,name:label,start:ms,end:need,elementos:con.map(e=>e.nombre)}); if(ms<projS)projS=ms; }
   });
   eb.forEach(b=>{if(b.esc&&b.esc.start<projS)projS=b.esc.start;});
-  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS};
+  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS,overflow,fabFloor};
 }
 
-function build(){return DATA.eventos.map(ev=>{const els=DATA.elementos.filter(e=>e.evento===ev.evento);return {ev,els,sc:schedule(ev,els,PARAMS)};});}
+function build(){
+  const evs=DATA.eventos.map(ev=>{const els=DATA.elementos.filter(e=>e.evento===ev.evento);return {ev,els,sc:schedule(ev,els,PARAMS)};});
+  assignPrints(evs,PARAMS);
+  return evs;
+}
+// Agenda impresión a nivel taller: máx P.printCap por día. Si el día ideal está ocupado, danza +1,−1,+2,−2…
+// Prioridad: la de MENOS holgura hacia su carga se queda; las de más margen se mueven. Avisa si cae después de la carga.
+function assignPrints(evs,P){
+  const capP=Math.max(1,Math.round(P.printCap||1));
+  const items=[];
+  evs.forEach(e=>e.sc.eb.forEach(b=>{if(b)items.push({b,ideal:b.printIdeal,carga:e.sc.fabEnd});}));
+  items.sort((x,y)=>(x.carga-x.ideal)-(y.carga-y.ideal));   // menos holgura primero
+  const cnt=new Map(),key=d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(),free=d=>((cnt.get(key(d))||0)<capP);
+  items.forEach(it=>{
+    let day=new Date(it.ideal),moved=false;
+    if(!free(day)){
+      let found=null;
+      for(let step=1;step<=90&&!found;step++){for(const dir of [1,-1]){const c=addD(it.ideal,dir*step);if(free(c)){found=c;break;}}}
+      day=found||new Date(it.ideal); moved=true;
+    }
+    cnt.set(key(day),(cnt.get(key(day))||0)+1);
+    it.b.printDay=day; it.b.printMoved=moved; it.b.printLate=day>it.carga;
+  });
+}
 
 function renderGantt(evs){
   const P=PARAMS;
@@ -238,7 +283,7 @@ function renderGantt(evs){
     let b="";
     e.sc.env.forEach(s=>{const w=Math.max(x(s.end)-x(s.start),s.cat==="HITO"?7:3);b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${w}px;background:${CAT[s.cat].c}"></div>`;});
     b+=`<div class="bar" title="Evento" style="left:${x(e.sc.evStart)}px;width:${Math.max(diffD(e.sc.evEnd,e.sc.evStart)*DAYW,4)}px;background:${CAT.EVT.c}"></div>`;
-    e.sc.post.forEach(s=>{b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${Math.max(x(s.end)-x(s.start)-1,3)}px;background:${CAT.CIE.c};opacity:.8"></div>`;});
+    e.sc.post.forEach(s=>{b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${Math.max(x(s.end)-x(s.start)-1,3)}px;background:${CAT[s.cat].c};opacity:.85"></div>`;});
     (e.sc.materiales||[]).forEach(m=>{b+=`<div class="mbar bar" title="Pedir ${m.name} — para: ${m.elementos.join(", ")}" style="left:${x(m.start)}px;width:${Math.max(x(m.end)-x(m.start),4)}px"></div>`;});
     rowsB+=`<div class="rowB">${b}</div>`;y+=ROWH;
     if(!col)e.sc.eb.forEach(b2=>{const el=b2.el;
@@ -254,7 +299,7 @@ function renderGantt(evs){
             `<span class="zmix" style="position:absolute;left:${wR}px;top:0;bottom:0;width:${wM}px"></span>`+
             `<span style="position:absolute;left:${wR+wM}px;top:0;bottom:0;width:${wP}px;background:${CAT.PINT.c}"></span>`+
           `</div>`;
-      sb+=`<span class="prn" title="Emplaye/impresión al cierre" style="left:${x(b2.pint.end)-14}px">🖨️</span>`;
+      sb+=`<span class="prn" title="Impresión ${el.nombre} · ${fmt(b2.printDay)}${b2.printMoved?' (reacomodada para no saturar impresión)':''}${b2.printLate?' — ¡DESPUÉS DE LA CARGA!':''}" style="left:${x(b2.printDay)+2}px;${b2.printMoved?'opacity:.5;':''}${b2.printLate?'color:#b91c1c;':''}">🖨️</span>`;
       rowsB+=`<div class="rowB">${sb}</div>`;y+=ROWH;
     });
   });
@@ -263,12 +308,18 @@ function renderGantt(evs){
   const bandsH=bands.map(([a,z])=>`<div class="band" style="left:${a*DAYW}px;width:${(z-a+1)*DAYW}px"></div>`).join("");
   let cargaH="";for(let i=0;i<total;i++){if(carga[i]>0){const over=carga[i]>P.cap;cargaH+=`<div class="cell" style="left:${i*DAYW}px;width:${DAYW}px;color:${over?'#fff':'#7c2d12'};background:${over?'#C0392B':(carga[i]>=P.cap?'#F59E0B':'#FDE68A')}">${carga[i]}</div>`;}}
   const peak=Math.max(...carga,0);
+  // Fila de impresión: 🖨️ por día agendado (respeta 1/día); cuenta y detecta tardías
+  const impr=new Array(total).fill(0); let imprLate=0;
+  evs.forEach(e=>e.sc.eb.forEach(b=>{if(b&&b.printDay){const i=diffD(b.printDay,min);if(i>=0&&i<total)impr[i]++; if(b.printLate)imprLate++;}}));
+  let imprH="";for(let i=0;i<total;i++){if(impr[i]>0){const ov=impr[i]>(P.printCap||1);imprH+=`<div class="cell" style="left:${i*DAYW}px;width:${DAYW}px;color:${ov?'#fff':'#5b21b6'};background:${ov?'#7C3AED':'#EDE9FE'}">${impr[i]>1?impr[i]:'🖨️'}</div>`;}}
   const leg=Object.values(CAT).map(v=>`<span class="lg"><span class="sw" style="background:${v.c}"></span>${v.n}</span>`).join("")+`<span class="lg"><span class="sw" style="background:rgba(192,0,0,.2);border:1px solid #f00"></span>Carga alta</span><span class="lg">🖨️ impresión</span>`;
   return `<div class="legend">${leg}</div>
-   <div class="board"><div class="labels"><div class="axis" style="display:flex;align-items:flex-end;padding:0 8px 3px"><span class="sub">Evento / Elemento</span></div>${rowsL}<div class="rowL" style="background:#fff;font-weight:700;color:#C0392B">Carga taller (# elementos)</div></div>
+   <div class="board"><div class="labels"><div class="axis" style="display:flex;align-items:flex-end;padding:0 8px 3px"><span class="sub">Evento / Elemento</span></div>${rowsL}<div class="rowL" style="background:#fff;font-weight:700;color:#C0392B">Carga taller (# elementos)</div><div class="rowL" style="background:#fff;font-weight:700;color:#7C3AED">Impresión (${P.printCap||1}/día)</div></div>
      <div class="tl"><div style="width:${W}px;position:relative"><div class="axis">${months}</div>
        <div class="body" style="height:${y}px;position:relative">${sun}${bandsH}<div class="today" style="left:${x(TODAY)}px"></div>${rowsB}</div>
-       <div class="cargaRow">${cargaH}</div></div></div></div>
+       <div class="cargaRow">${cargaH}</div><div class="cargaRow">${imprH}</div></div></div></div>
+   ${imprLate?`<div class="alert"><b>${imprLate} impresión(es) sin hueco antes de la carga</b> — no hay día libre de impresión antes de cargar ese stand. Adelantar el gráfico o liberar capacidad de impresión.</div>`:""}
+   ${(()=>{const ov=evs.filter(e=>e.sc.overflow).map(e=>e.ev.evento);return ov.length?`<div class="alert"><b>${ov.length} evento(s) no caben ni encimando dentro de la ventana de fabricación (${P.fabWindow||30} días háb.):</b> ${ov.join(", ")}. Hay que arrancar antes de lo permitido, subir capacidad, o adelantar la aprobación.</div>`:"";})()}
    ${peak>P.cap?`<div class="alert"><b>Carga alta:</b> pico de ${peak} elementos en fabricación contra capacidad ${P.cap}. Adelantar fabricación, preparador de corte o desfasar turnos.</div>`:""}
    <div class="params"><h3>Ajusta las longitudes (recalcula) <span class="pill">mueve cualquier fase</span></h3><div class="grid" id="pg"></div>
      <div class="note">Fabricación = DÍAS por elemento (del experto) → ${Math.round(P.carpPct*100)}% carpintería / ${Math.round((1-P.carpPct)*100)}% pintura, +${P.extraCarp} día a carpintería. Días hábiles: sáb ${P.sab}, dom ${P.dom}.</div></div>`;
@@ -304,7 +355,7 @@ function renderPendientes(evs){
   pedirHTML+=`</div>`;
   const pedVenc=pedir.filter(p=>diffD(p.by,TODAY)<0).length;
   // ---- áreas del día (por horizonte) ----
-  const AREAS=[["Carpintería","#C0392B"],["Pintura","#7C3AED"],["Pre-armado y carga","#0D9488"],["Montaje","#16A34A"],["Cierre (desmontaje/retorno)","#6B7280"]];
+  const AREAS=[["Carpintería","#C0392B"],["Pintura","#7C3AED"],["Carga","#0D9488"],["Montaje","#16A34A"],["Cierre (desmontaje/retorno)","#6B7280"]];
   const bucket={}; AREAS.forEach(([a])=>bucket[a]=[]);
   const fD=d=>fmt(d);
   evs.forEach(e=>{
@@ -316,8 +367,7 @@ function renderPendientes(evs){
       if(inH(b.pint.start,b.pint.end,H0,H1)){const late=TODAY>=b.pint.start && est<3;
         bucket["Pintura"].push({who:b.el.nombre,mt:`${evn} · ${fD(b.pint.start)}–${fD(b.pint.end)} · estado: ${b.el.estado}`,b:late?"ret":(TODAY<b.pint.start?"soon":"ok")});}
     });
-    if(inH(sc.pintEnd,sc.fabEnd,H0,H1)) bucket["Pre-armado y carga"].push({who:"Pre-armado y verificación",mt:`${evn} · ${fD(sc.pintEnd)}–${fD(sc.fabEnd)}`,b:"go"});
-    if(inH(sc.fabEnd,sc.transpStart,H0,H1)) bucket["Pre-armado y carga"].push({who:"Carga de camión",mt:`${evn} · ${fD(sc.fabEnd)}`,b:"go"});
+    if(inH(sc.fabEnd,sc.transpStart,H0,H1)) bucket["Carga"].push({who:"Carga de camión",mt:`${evn} · ${fD(sc.fabEnd)}`,b:"go"});
     if(inH(sc.montS,sc.evStart,H0,H1)) bucket["Montaje"].push({who:"Montaje en sitio",mt:`${evn} · ${fD(sc.montS)}–${fD(sc.evStart)} · ${e.ev.localidad}`,b:"go"});
     sc.post.forEach(p=>{if(inH(p.start,p.end,H0,H1))bucket["Cierre (desmontaje/retorno)"].push({who:p.name,mt:`${evn} · ${fD(p.start)}–${fD(p.end)}`,b:"go"});});
   });
@@ -358,9 +408,11 @@ function render(){
   app.innerHTML = sat + toggle + body;
   if(VIEW==="gantt"){
     const P=PARAMS,pg=document.getElementById("pg");
-    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["prearmado","Pre-armado"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
+    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
     let h=""; FN.forEach(([k,n])=>h+=`<div class="fld"><span>${n}</span><input type="number" min="0" step="0.5" value="${P.f[k]}" onchange="sf('${k}',this.value)"></div>`);
     h+=`<div class="fld"><span>Capacidad (elementos)</span><input type="number" min="1" value="${P.cap}" onchange="sc('cap',this.value)"></div>`;
+    h+=`<div class="fld"><span>Impresión por día</span><input type="number" min="1" value="${P.printCap}" onchange="sc('printCap',this.value)"></div>`;
+    h+=`<div class="fld"><span>Ventana fabricación (háb.)</span><input type="number" min="5" value="${P.fabWindow}" onchange="sc('fabWindow',this.value)"></div>`;
     h+=`<div class="fld"><span>% carpintería</span><input type="number" min="0" max="1" step="0.05" value="${P.carpPct}" onchange="sc('carpPct',this.value)"></div>`;
     h+=`<div class="fld"><span>Zona roja (solo carp.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zRed}" onchange="sc('zRed',this.value)"></div>`;
     h+=`<div class="fld"><span>Zona morada (solo pint.)</span><input type="number" min="0" max="1" step="0.05" value="${P.zPurple}" onchange="sc('zPurple',this.value)"></div>`;
@@ -406,16 +458,20 @@ window.printCarpentry=function(){
   setTimeout(cleanup,1500); // respaldo por si afterprint no dispara
 };
 // Carga automática del Excel publicado en el repo (datos.xlsx). Si no existe, queda el estado inicial.
-async function autoLoad(){
+async function autoLoad(keepState){
   try{
     const res=await fetch("datos.xlsx?t="+Date.now(),{cache:"no-store"});
     if(!res.ok) return;
     const buf=await res.arrayBuffer();
     const wb=XLSX.read(buf,{type:"array",cellDates:true});
-    DATA=parseWB(wb); PARAMS=DATA.params; collapsed={}; render();
-  }catch(e){ /* sin datos publicados: se usa 'Cargar Excel' o 'Ver ejemplo' */ }
+    DATA=parseWB(wb); PARAMS=DATA.params;
+    if(!keepState) collapsed={};   // en refresco automático se conserva lo expandido y la vista
+    render();
+  }catch(e){ /* sin datos o red intermitente: se conserva lo que ya se ve */ }
 }
 autoLoad();
+// Pantalla fija en oficina: refresca datos cada 20 min conservando la vista actual.
+setInterval(()=>autoLoad(true), 20*60*1000);
 </script>
 </body>
 </html>
