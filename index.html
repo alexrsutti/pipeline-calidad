@@ -117,7 +117,7 @@
   <div id="app"><div class="empty">Carga la <b>hoja de captura V3</b> (Localidades · Eventos · Elementos · Parametros) con <b>“Cargar Excel”</b>,<br>o pulsa <b>“Ver ejemplo”</b>. Arriba cambias entre <b>Gantt</b> y <b>Kanban</b>.</div></div>
 </div>
 <script>
-const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PREP:{c:"#6366F1",n:"Planeación y compra"},PROD:{c:"#C0392B",n:"Carpintería"},
+const CAT={CD:{c:"#2563EB",n:"Comercial y diseño"},HITO:{c:"#D97706",n:"Aprobación"},PROD:{c:"#C0392B",n:"Carpintería"},
   PINT:{c:"#7C3AED",n:"Pintura (cuello)"},CARGA:{c:"#0D9488",n:"Carga"},TRANSP:{c:"#0891B2",n:"Transporte"},MONT:{c:"#EA580C",n:"Montaje"},EVT:{c:"#16A34A",n:"Evento"},DESM:{c:"#F59E0B",n:"Desmontaje"},REGA:{c:"#14B8A6",n:"Regreso a almacén"},
   MAT:{c:"#B45309",n:"Material largo plazo"},ESC:{c:"#334155",n:"Escalera (2 pisos)"}};
 const ESTADOS=["Propuesta","Planos","Fabricación","Pintura","En montaje","Evento","Cerrado"];
@@ -165,7 +165,7 @@ function parseWB(wb){
     else if(s.includes("extra"))P.extraCarp=+nx; else if(s.includes("escalera"))P.leadEsc=+nx; else if(s.includes("colchón")||s.includes("colchon")||s.includes("antes de carga"))P.matColchon=+nx; else if(s.includes("vidrio"))P.leadVidrio=+nx; else if(s.includes("acrílico")||s.includes("acrilico"))P.leadAcrilico=+nx; else if(s.includes("lona")||s.includes("impresión especial")||s.includes("impresion especial"))P.leadLona=+nx; else if(s.includes("impresi")&&s.includes("día")||s.includes("impresi")&&s.includes("dia"))P.printCap=+nx; else if(s.includes("ventana"))P.fabWindow=+nx;
     else if(s.includes("sábado")||s.includes("sabado"))P.sab=+nx; else if(s.includes("domingo"))P.dom=+nx;}));
   const eventos=rows(wb,"Eventos").map(r=>({evento:String(gv(r,["evento"])).trim(),recinto:gv(r,["recinto"]),localidad:String(gv(r,["localidad"])).trim()||"CDMX (local)",
-    inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1})).filter(e=>e.evento&&e.inicio);
+    inicio:toDate(gv(r,["inicio"])),dias:+gv(r,["días evento","dias evento"])||+gv(r,["días","dias"])||3,montaje:+gv(r,["montaje"])||2,desmontaje:+gv(r,["desmontaje"])||1,planosBajados:yes(gv(r,["planos bajados","planos"]))})).filter(e=>e.evento&&e.inicio);
   const elementos=rows(wb,"Elementos").map(r=>({evento:String(gv(r,["evento"])).trim(),nombre:gv(r,["elemento","nombre"]),tipo:gv(r,["tipo"])||"Stand",
     ancho:+gv(r,["ancho"])||0,largo:+gv(r,["largo"])||0,dospisos:yes(gv(r,["dos pisos","pisos"])),fab:+gv(r,["fabrica","días fab","dias fab"])||0,estado:String(gv(r,["estado"])).trim()||"Propuesta",vidrio:yes(gv(r,["vidrio"])),acrilico:yes(gv(r,["acrílico","acrilico"])),lona:yes(gv(r,["lona","impresión especial","impresion especial"]))})).filter(e=>e.evento&&e.fab>0);
   return {eventos,elementos,params:P};
@@ -215,12 +215,11 @@ function schedule(ev,els,P){
   }
   const eb=els.map(e=>barMap.get(e));
   let earliest=pintEnd; eb.forEach(b=>{if(b.carp.start<earliest)earliest=b.carp.start;});
-  const compraEnd=earliest, compraS=workBack(compraEnd,f.compra,P), planS=workBack(compraS,f.planeacion,P),
-    aprS=workBack(planS,f.aprobacion,P), disS=workBack(aprS,f.diseno,P), cotS=workBack(disS,f.cotizacion,P), entS=workBack(cotS,f.entrevista,P);
+  const bajarPlanos=earliest;   // hito 0 días: "Bajar planos a producción" (aprobación → carpintería, sin planeación/compra intermedias)
+  const aprS=workBack(bajarPlanos,f.aprobacion,P), disS=workBack(aprS,f.diseno,P), cotS=workBack(disS,f.cotizacion,P), entS=workBack(cotS,f.entrevista,P);
   // envelope de fabricación (aprox 40/60 del span para el renglón de evento)
   const span=(pintEnd-earliest)/MS, cSplit=addD(earliest,span*P.carpPct);
-  const env=[["CD","Entrevista/cotización/diseño",entS,aprS],["HITO","Aprobación",aprS,planS],
-    ["PREP","Planeación y compra",planS,earliest],
+  const env=[["CD","Entrevista/cotización/diseño",entS,aprS],["HITO","Aprobación",aprS,bajarPlanos],
     ["PROD","Carpintería (envelope)",earliest,cSplit],["PINT","Pintura (envelope)",cSplit,pintEnd],
     ["CARGA","Carga",fabEnd,transpStart],["TRANSP","Transporte",transpStart,montS],["MONT","Montaje",montS,evStart]]
     .map(a=>({cat:a[0],name:a[1],start:a[2],end:a[3]}));
@@ -236,7 +235,7 @@ function schedule(ev,els,P){
     if(con.length){ const ms=workBack(need,lead||0,P); materiales.push({key,name:label,start:ms,end:need,elementos:con.map(e=>e.nombre)}); if(ms<projS)projS=ms; }
   });
   eb.forEach(b=>{if(b.esc&&b.esc.start<projS)projS=b.esc.start;});
-  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS,overflow,fabFloor};
+  return {env,post,evStart,evEnd,projS,projEnd:acoEnd,earliest,pintEnd,materiales,eb,fabEnd,transpStart,montS,overflow,fabFloor,bajarPlanos};
 }
 
 function build(){
@@ -282,6 +281,7 @@ function renderGantt(evs){
     rowsL+=`<div class="rowL evL" onclick="tg(${ei})">${col?"▸":"▾"} <b>${e.ev.evento}</b> <span class="tag">${e.ev.localidad}</span>${mtag}${ptag}</div>`;
     let b="";
     e.sc.env.forEach(s=>{const w=Math.max(x(s.end)-x(s.start),s.cat==="HITO"?7:3);b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${w}px;background:${CAT[s.cat].c}"></div>`;});
+    b+=`<span title="Bajar planos a producción: ${fmt(e.sc.bajarPlanos)} (traspaso aprobación → carpintería)${e.ev.planosBajados?" · ✔ PLANOS BAJADOS":""}" style="position:absolute;left:${x(e.sc.bajarPlanos)-5}px;top:6px;width:10px;height:10px;background:${e.ev.planosBajados?"#16A34A":"#111"};transform:rotate(45deg);z-index:4"></span>`;
     b+=`<div class="bar" title="Evento" style="left:${x(e.sc.evStart)}px;width:${Math.max(diffD(e.sc.evEnd,e.sc.evStart)*DAYW,4)}px;background:${CAT.EVT.c}"></div>`;
     e.sc.post.forEach(s=>{b+=`<div class="bar" title="${s.name}: ${fmt(s.start)}–${fmt(s.end)}" style="left:${x(s.start)}px;width:${Math.max(x(s.end)-x(s.start)-1,3)}px;background:${CAT[s.cat].c};opacity:.85"></div>`;});
     (e.sc.materiales||[]).forEach(m=>{b+=`<div class="mbar bar" title="Pedir ${m.name} — para: ${m.elementos.join(", ")}" style="left:${x(m.start)}px;width:${Math.max(x(m.end)-x(m.start),4)}px"></div>`;});
@@ -312,7 +312,7 @@ function renderGantt(evs){
   const impr=new Array(total).fill(0); let imprLate=0;
   evs.forEach(e=>e.sc.eb.forEach(b=>{if(b&&b.printDay){const i=diffD(b.printDay,min);if(i>=0&&i<total)impr[i]++; if(b.printLate)imprLate++;}}));
   let imprH="";for(let i=0;i<total;i++){if(impr[i]>0){const ov=impr[i]>(P.printCap||1);imprH+=`<div class="cell" style="left:${i*DAYW}px;width:${DAYW}px;color:${ov?'#fff':'#5b21b6'};background:${ov?'#7C3AED':'#EDE9FE'}">${impr[i]>1?impr[i]:'🖨️'}</div>`;}}
-  const leg=Object.values(CAT).map(v=>`<span class="lg"><span class="sw" style="background:${v.c}"></span>${v.n}</span>`).join("")+`<span class="lg"><span class="sw" style="background:rgba(192,0,0,.2);border:1px solid #f00"></span>Carga alta</span><span class="lg">🖨️ impresión</span>`;
+  const leg=Object.values(CAT).map(v=>`<span class="lg"><span class="sw" style="background:${v.c}"></span>${v.n}</span>`).join("")+`<span class="lg"><span style="width:10px;height:10px;background:#111;transform:rotate(45deg);display:inline-block"></span>Bajar planos</span><span class="lg"><span class="sw" style="background:rgba(192,0,0,.2);border:1px solid #f00"></span>Carga alta</span><span class="lg">🖨️ impresión</span>`;
   return `<div class="legend">${leg}</div>
    <div class="board"><div class="labels"><div class="axis" style="display:flex;align-items:flex-end;padding:0 8px 3px"><span class="sub">Evento / Elemento</span></div>${rowsL}<div class="rowL" style="background:#fff;font-weight:700;color:#C0392B">Carga taller (# elementos)</div><div class="rowL" style="background:#fff;font-weight:700;color:#7C3AED">Impresión (${P.printCap||1}/día)</div></div>
      <div class="tl"><div style="width:${W}px;position:relative"><div class="axis">${months}</div>
@@ -379,6 +379,17 @@ function renderPendientes(evs){
       <option value="7"${HORIZON===7?" selected":""}>7 días</option></select>`}
     <span class="mt" style="color:#777">Atrasado = el plan ya pide esa fase y el Estado capturado va más atrás.</span></div>`;
   if(pedVenc)html+=`<div class="alert"><b>${pedVenc} pedido(s) con fecha límite vencida</b> — riesgo de que el material/escalera no llegue a tiempo.</div>`;
+  // Planos sin bajar: si el evento tiene fecha de "Planos bajados" se considera bajado (y medimos demora).
+  // Si NO tiene fecha, se infiere del Estado: alerta si el hito ya pasó y el elemento sigue en Propuesta/Planos.
+  const sinBajar=[];
+  evs.forEach(e=>{ const pb=e.ev.planosBajados;
+    if(pb) return;   // ya registrado que bajaron → sin alerta
+    if(e.sc.bajarPlanos<=TODAY) e.els.forEach(el=>{ if((ESTIDX[el.estado]??0)<2) sinBajar.push({ev:e.ev.evento,el:el.nombre,dias:diffD(TODAY,e.sc.bajarPlanos),estado:el.estado}); });
+  });
+  if(sinBajar.length){
+    const filas=sinBajar.sort((a,b)=>b.dias-a.dias).map(s=>`<div class="pitem"><div><span class="who">${s.el}</span><div class="mt">${s.ev} · debieron bajar hace <b>${s.dias} día(s)</b> · estado: ${s.estado}</div></div><span class="bdg b-ret">Sin bajar</span></div>`).join("");
+    html+=`<div class="parea"><div class="pah" style="background:#b91c1c"><span>⚠️ Planos aprobados sin bajar a producción</span><span>${sinBajar.length}</span></div>${filas}</div>`;
+  }
   html+=pedirHTML;
   let anyRet=0;
   AREAS.forEach(([a,c])=>{
@@ -408,7 +419,7 @@ function render(){
   app.innerHTML = sat + toggle + body;
   if(VIEW==="gantt"){
     const P=PARAMS,pg=document.getElementById("pg");
-    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["planeacion","Planeación"],["compra","Compra"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
+    const FN=[["entrevista","Entrevista"],["cotizacion","Cotización"],["diseno","Diseño"],["aprobacion","Aprobación"],["carga","Carga"],["transporte","Transporte"],["retorno","Retorno"],["acomodo","Acomodo"]];
     let h=""; FN.forEach(([k,n])=>h+=`<div class="fld"><span>${n}</span><input type="number" min="0" step="0.5" value="${P.f[k]}" onchange="sf('${k}',this.value)"></div>`);
     h+=`<div class="fld"><span>Capacidad (elementos)</span><input type="number" min="1" value="${P.cap}" onchange="sc('cap',this.value)"></div>`;
     h+=`<div class="fld"><span>Impresión por día</span><input type="number" min="1" value="${P.printCap}" onchange="sc('printCap',this.value)"></div>`;
